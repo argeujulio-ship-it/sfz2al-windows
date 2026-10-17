@@ -1,0 +1,17 @@
+/work/
+/build/
+/dist/
+__pycache__/
+*.zip
+*.key
+*.bin
+*.exe
+*.dll
+*.obj
+*.pdb
+*.eeprom
+*.state
+*.log
+launcher.ini
+*.controls.bak
+*.controls.tmp

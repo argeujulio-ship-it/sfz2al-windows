@@ -1,0 +1,613 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index fb3d138..8702b28 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -42,6 +42,10 @@ set(MACHINE_SOURCES
+ )
+ # The game's own sources (features, routines replaced by hand-written C++); without any, nothing is added
+ file(GLOB GAME_SOURCES CONFIGURE_DEPENDS "${GAME_DIR}/src/*.cpp")
++option(SFZ2AL_LADDER_RESEARCH "Compile the local life-control research harness" OFF)
++if (GAME STREQUAL "sfz2al" AND SFZ2AL_LADDER_RESEARCH)
++    set_property(SOURCE "${GAME_DIR}/src/practice.cpp" APPEND PROPERTY COMPILE_DEFINITIONS SFZ2AL_ENABLE_LADDER_HARNESS)
++endif ()
+ # ... and those of the games it shares sources with (game.cfg's "sources": another game made from the same program,
+ # whose sources name its places as At(0x...); the game's own family.h, in its folder, says where they are in it)
+ file(STRINGS "${GAME_DIR}/game.cfg" GAME_SHARES REGEX "^sources[ \t]*=")
+@@ -61,7 +65,11 @@ endif ()
+ set(PORT_SOURCES port/main.cpp port/frontend_sdl.cpp port/present.cpp port/menu.cpp port/hud.cpp port/soundtrack.cpp port/decoders.cpp recomp-common/menu.cpp recomp-common/settings.cpp runtime/game.cpp runtime/board.cpp runtime/spare.cpp fight/frames.cpp fight/training.cpp fight/colours.cpp fight/colour_editor.cpp ${GAME_SOURCES})
+ 
+ # (the sound files' decoders, third_party/, are other projects' code, compiled as they are)
+-set_source_files_properties(port/decoders.cpp PROPERTIES COMPILE_OPTIONS "-w")
++if (MSVC)
++    set_source_files_properties(port/decoders.cpp PROPERTIES COMPILE_OPTIONS "/w")
++else ()
++    set_source_files_properties(port/decoders.cpp PROPERTIES COMPILE_OPTIONS "-w")
++endif ()
+ 
+ # The game, on cps2recomp's own machine (machine/). No emulator is compiled or linked into it.
+ add_executable(${GAME} ${PORT_SOURCES} ${MACHINE_SOURCES} ${GEN_SOURCES} ${GEN_Z80_SOURCES})
+@@ -77,5 +85,10 @@ endif ()
+ foreach (target ${GAME} ${GAME}-check)
+     target_include_directories(${target} PRIVATE runtime port machine fight "${WORK_DIR}/gen" "${GAME_DIR}")
+     target_link_libraries(${target} PRIVATE SDL3::SDL3 ZLIB::ZLIB)
+-    target_compile_options(${target} PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-label -Wno-unused-variable -Wno-parentheses-equality)
++    if (MSVC)
++        target_compile_definitions(${target} PRIVATE NOMINMAX)
++        target_compile_options(${target} PRIVATE /W3 /utf-8 /EHsc)
++    else ()
++        target_compile_options(${target} PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-label -Wno-unused-variable -Wno-parentheses-equality)
++    endif ()
+ endforeach ()
+diff --git a/machine/m68k.cpp b/machine/m68k.cpp
+index bdc1167..d81ccb8 100644
+--- a/machine/m68k.cpp
++++ b/machine/m68k.cpp
+@@ -451,11 +451,19 @@ void M68K::Execute(uint16_t op) {
+         if ((op & 0xFF80) == 0x4E80) { // JSR, JMP
+             static constexpr uint8_t kJump[12] = {0, 0, 8, 0, 0, 10, 14, 10, 12, 10, 14, 0};
+             const Operand target = Locate(mode, reg, 2);
++            // JMP/JSR (An) still refetch when An names the sequential PC.
++            // RefillWait detects other destinations by a changed PC, so it
++            // cannot see this case. MC68000UM table 8-10 lists two reads.
++            const bool sequentialRefetch = fetchedWords == 1 && target.at == pc;
+             if (!(op & 0x0040)) {
+                 Push32(pc);
+                 m_cycles += 8;
+             }
+             pc = target.at;
++            if (sequentialRefetch) {
++                cycles += busWait;
++                waitsCounted += busWait;
++            }
+             m_cycles += kJump[modeIndex];
+             m_jumped = modeIndex < 7 || modeIndex == 10; // (through a register: not a fixed place)
+             return;
+diff --git a/machine/romset.cpp b/machine/romset.cpp
+index ccacfce..5714852 100644
+--- a/machine/romset.cpp
++++ b/machine/romset.cpp
+@@ -6,6 +6,9 @@
+ #include "cps2crypt.h"
+ 
+ #include <sys/stat.h>
++#if defined(_MSC_VER) && !defined(S_ISDIR)
++#define S_ISDIR(mode) (((mode) & _S_IFMT) == _S_IFDIR)
++#endif
+ #include <zlib.h>
+ 
+ #include <algorithm>
+diff --git a/port/bindings.h b/port/bindings.h
+index b817a24..f6c825d 100644
+--- a/port/bindings.h
++++ b/port/bindings.h
+@@ -35,6 +35,8 @@ inline constexpr BoundAction kBoundActions[] = {
+     {"right", "Right", 1 << 0},    {"lp", "Light punch", 1 << 4},   {"mp", "Medium punch", 1 << 5},
+     {"hp", "Hard punch", 1 << 6},  {"lk", "Light kick", 1 << 7},    {"mk", "Medium kick", 1 << 8},
+     {"hk", "Hard kick", 1 << 9},   {"start", "Start", 1 << 10},     {"coin", "Coin", 1 << 11},
++    {"ppp", "3 punches", (1 << 4) | (1 << 5) | (1 << 6)},
++    {"kkk", "3 kicks", (1 << 7) | (1 << 8) | (1 << 9)},
+ };
+ inline constexpr int kBoundActionCount = static_cast<int>(sizeof(kBoundActions) / sizeof(kBoundActions[0]));
+ inline constexpr int kBoundPlayers = 2;
+@@ -42,6 +44,16 @@ inline constexpr int kBoundPlayers = 2;
+ using recomp::Bindings;
+ using recomp::PadInput;
+ 
++// Combine held actions each frame. A multi-button binding contributes the same
++// bits as pressing its three individual buttons, including normal release.
++template<class IsPressed>
++inline uint16_t BoundInputMask(IsPressed pressed) {
++    uint16_t mask=0;
++    for(int action=0;action<kBoundActionCount;++action)
++        if(pressed(action))mask|=kBoundActions[action].bit;
++    return mask;
++}
++
+ // The layout with nothing chosen. Keyboard, player 1: arrows; A S D punches, Z X C kicks (light, medium,
+ // hard); 1 Start; 5 a coin. Player 2 has no keys until some are chosen. A gamepad is laid out like a
+ // six-button panel: punches on the top row (West, North, right shoulder), kicks below (South, East, right
+@@ -50,12 +62,14 @@ inline const recomp::BindTable &BindingTable() {
+     static constexpr SDL_Scancode kKeys[kBoundActionCount] = {
+         SDL_SCANCODE_UP, SDL_SCANCODE_DOWN, SDL_SCANCODE_LEFT, SDL_SCANCODE_RIGHT, SDL_SCANCODE_A, SDL_SCANCODE_S,
+         SDL_SCANCODE_D,  SDL_SCANCODE_Z,    SDL_SCANCODE_X,    SDL_SCANCODE_C,     SDL_SCANCODE_1, SDL_SCANCODE_5,
++        SDL_SCANCODE_UNKNOWN, SDL_SCANCODE_UNKNOWN,
+     };
+     static constexpr PadInput kPad[kBoundActionCount] = {
+         {SDL_GAMEPAD_BUTTON_DPAD_UP, -1},   {SDL_GAMEPAD_BUTTON_DPAD_DOWN, -1},      {SDL_GAMEPAD_BUTTON_DPAD_LEFT, -1},
+         {SDL_GAMEPAD_BUTTON_DPAD_RIGHT, -1}, {SDL_GAMEPAD_BUTTON_WEST, -1},          {SDL_GAMEPAD_BUTTON_NORTH, -1},
+         {SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, -1}, {SDL_GAMEPAD_BUTTON_SOUTH, -1},     {SDL_GAMEPAD_BUTTON_EAST, -1},
+         {-1, SDL_GAMEPAD_AXIS_RIGHT_TRIGGER}, {SDL_GAMEPAD_BUTTON_START, -1},        {SDL_GAMEPAD_BUTTON_BACK, -1},
++        {}, {},
+     };
+     static const struct Table {
+         recomp::BindAction actions[kBoundActionCount];
+diff --git a/port/frontend_sdl.cpp b/port/frontend_sdl.cpp
+index bdf5104..4b01e90 100644
+--- a/port/frontend_sdl.cpp
++++ b/port/frontend_sdl.cpp
+@@ -7,6 +7,7 @@
+ #include "bindings.h"
+ #include "port.h"
+ #include "present.h"
++#include "themes.h"
+ 
+ #include "../runtime/game.h"
+ 
+@@ -15,6 +16,8 @@
+ #include <algorithm>
+ #include <cmath>
+ #include <cstring>
++#include <filesystem>
++#include "../recomp-common/settings.h"
+ 
+ using namespace cps2recomp;
+ 
+@@ -29,6 +32,8 @@ namespace {
+     static_assert(kBoundActions[0].bit == kUp && kBoundActions[1].bit == kDown && kBoundActions[2].bit == kLeft &&
+                   kBoundActions[3].bit == kRight && kBoundActions[4].bit == kPunch1 && kBoundActions[9].bit == kKick3 &&
+                   kBoundActions[10].bit == kStart && kBoundActions[11].bit == kCoin);
++    static_assert(kBoundActions[12].bit == (kPunch1 | kPunch2 | kPunch3) &&
++                  kBoundActions[13].bit == (kKick1 | kKick2 | kKick3));
+ 
+     constexpr int kDead = 16000; // how far a stick or a trigger must go to count
+ 
+@@ -47,13 +52,10 @@ namespace {
+     }
+ 
+     uint16_t ReadKeyboard(const bool *keys, int player) {
+-        uint16_t pad = 0;
+-        for (int action = 0; action < kBoundActionCount; action++) {
++        uint16_t pad = BoundInputMask([&](int action) {
+             const SDL_Scancode key = g_bindings.key[player][action];
+-            if (key != SDL_SCANCODE_UNKNOWN && keys[key]) {
+-                pad |= kBoundActions[action].bit;
+-            }
+-        }
++            return key != SDL_SCANCODE_UNKNOWN && keys[key];
++        });
+         // (Return starts player 1's game too, unless it has been given something to do)
+         if (player == 0 && keys[SDL_SCANCODE_RETURN] && !KeyBound(SDL_SCANCODE_RETURN)) {
+             pad |= kStart;
+@@ -62,14 +64,11 @@ namespace {
+     }
+ 
+     uint16_t ReadGamepad(SDL_Gamepad *gp, int player) {
+-        uint16_t pad = 0;
+-        for (int action = 0; action < kBoundActionCount; action++) {
++        uint16_t pad = BoundInputMask([&](int action) {
+             const PadInput input = g_bindings.pad[player][action];
+-            if ((input.button >= 0 && SDL_GetGamepadButton(gp, static_cast<SDL_GamepadButton>(input.button))) ||
+-                (input.axis >= 0 && SDL_GetGamepadAxis(gp, static_cast<SDL_GamepadAxis>(input.axis)) > kDead)) {
+-                pad |= kBoundActions[action].bit;
+-            }
+-        }
++            return (input.button >= 0 && SDL_GetGamepadButton(gp, static_cast<SDL_GamepadButton>(input.button))) ||
++                (input.axis >= 0 && SDL_GetGamepadAxis(gp, static_cast<SDL_GamepadAxis>(input.axis)) > kDead);
++        });
+         const int x = SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_LEFTX);
+         const int y = SDL_GetGamepadAxis(gp, SDL_GAMEPAD_AXIS_LEFTY);
+         if (x < -kDead) pad |= kLeft;
+@@ -108,8 +107,15 @@ int RunWindowed(Port &port) {
+     // The picture goes to the window through SDL's GPU API, or through SDL's renderer where there is no
+     // device for that (and the dummy video driver of the tests has none) or when asked: --renderer sdl
+     Presenter presenter;
++    Theme theme=ParseTheme(port.opt.theme);
++    ThemeOverlay themeOverlay;
++    int brightness=port.opt.brightness,contrast=port.opt.contrast;
++    const std::filesystem::path videoSettings=std::filesystem::path(SDL_GetBasePath())/"launcher.ini";
++    std::error_code videoError;
++    auto videoStamp=std::filesystem::last_write_time(videoSettings,videoError);
++    Uint64 videoPoll=0;
+     std::string presentError;
+-    const bool wantGpu = port.opt.renderer != "sdl" && strcmp(SDL_GetCurrentVideoDriver(), "dummy") != 0;
++    const bool wantGpu = theme==Theme::Clean && port.opt.renderer != "sdl" && strcmp(SDL_GetCurrentVideoDriver(), "dummy") != 0;
+     if (!window || !presenter.Open(window, wantGpu, presentError)) {
+         fprintf(stderr, "SDL window: %s\n", window ? presentError.c_str() : SDL_GetError());
+         return 1;
+@@ -193,6 +199,12 @@ int RunWindowed(Port &port) {
+                     toggleMenu();
+                 } else if (KeyBound(ev.key.scancode)) {
+                     // (a key the player has given to the game does only that)
++                } else if(ev.key.scancode==SDL_SCANCODE_F8 && !ev.key.repeat) {
++                    if(presenter.UsesGpu()) {
++                        themeOverlay.Close();presenter.Close();
++                        if(!presenter.Open(window,false,presentError)){running=false;break;}
++                    }
++                    theme=Theme((int(theme)+1)%4);
+                 } else if (ev.key.scancode == SDL_SCANCODE_F5 || ev.key.scancode == SDL_SCANCODE_F9) {
+                     // F5 keeps the game in the slot, F9 goes back to it; F6 / F7: the slot before, the next
+                     if (!port.menu.IsOpen()) {
+@@ -346,8 +358,22 @@ int RunWindowed(Port &port) {
+         // The picture in the window as the Display page says (present.h)
+         int width = 0, height = 0;
+         presenter.Size(width, height);
++        // The launcher's sliders affect an already running local game too.
++        if(SDL_GetTicks()>=videoPoll) {
++            videoPoll=SDL_GetTicks()+250;
++            auto stamp=std::filesystem::last_write_time(videoSettings,videoError);
++            if(!videoError&&stamp!=videoStamp) {
++                videoStamp=stamp;recomp::Ini ini(videoSettings);ini.load();
++                auto light=ini.get("video","brightness"),gain=ini.get("video","contrast");
++                if(!light.empty())brightness=std::clamp(atoi(light.c_str()),-50,50);
++                if(!gain.empty())contrast=std::clamp(atoi(gain.c_str()),50,150);
++                if(port.opt.stats)fprintf(stderr,"image adjustments: brightness=%d contrast=%d\n",brightness,contrast);
++            }
++        }
++        presenter.SetColorAdjust(brightness,contrast);
+         presenter.SetScaling(DisplayScaling());
+-        const SDL_FRect where = FitPicture(width, height, port.ShownWidth(), Video::kHeight, DisplayShape(), DisplayScaling());
++        const SDL_FRect where = ThemePicture(theme,width,height,port.ShownWidth(),Video::kHeight,DisplayShape(),DisplayScaling());
++        auto decoration=[&](SDL_Renderer *renderer){themeOverlay.Draw(renderer,theme,width,height,where);};
+ 
+         if (port.menu.IsOpen()) {
+             // The game's picture as it was, with the menu over it
+@@ -356,7 +382,7 @@ int RunWindowed(Port &port) {
+                 menuPicture = menuBase;
+                 port.menu.Draw(menuPicture.data(), static_cast<int>(menuWidth), static_cast<int>(menuHeight));
+             }
+-            presenter.Show(menuPicture.data(), static_cast<int>(menuWidth), static_cast<int>(menuHeight), where);
++            presenter.Show(menuPicture.data(), static_cast<int>(menuWidth), static_cast<int>(menuHeight), where,decoration);
+             SDL_Delay(8);
+             nextFrame = SDL_GetTicksNS();
+             continue;
+@@ -431,7 +457,7 @@ int RunWindowed(Port &port) {
+         }
+ 
+         port.Shown(shown);
+-        presenter.Show(shown.data(), port.ShownWidth(), Video::kHeight, where);
++        presenter.Show(shown.data(), port.ShownWidth(), Video::kHeight, where,decoration);
+ 
+         if (!port.opt.unthrottled && !FastForward()) {
+             nextFrame += static_cast<uint64_t>(kFrameNs);
+@@ -452,6 +478,7 @@ int RunWindowed(Port &port) {
+     if (music) {
+         SDL_DestroyAudioStream(music);
+     }
++    themeOverlay.Close();
+     presenter.Close();
+     SDL_DestroyWindow(window);
+     SDL_Quit();
+diff --git a/port/main.cpp b/port/main.cpp
+index 979113a..9599d3f 100644
+--- a/port/main.cpp
++++ b/port/main.cpp
+@@ -990,6 +990,8 @@ void Usage() {
+             "  --hash-picture         ... of the picture only (to compare runs whose timing is not the same)\n"
+             "  --hash-game            ... without the Z80 and its own memory (to compare --sound driver and z80)\n"
+ "  --renderer sdl|gpu     how the picture gets to the window: SDL's GPU API unless said (or not there)\n"
++            "  --theme clean|arcade|crt|cabinet visual frame; F8 cycles themes when unbound\n"
++            "  --brightness -50..50  --contrast 50..150  image adjustments (0 and 100: original)\n"
+             "  --present-test F.png   (headless) the run's last picture drawn by the GPU path, no window, as the\n"
+             "                         Display page has it (896x672 at 4:3)\n"
+             "  --present-size WxH     ... in a window this big\n"
+@@ -1067,6 +1069,18 @@ bool ParseArgs(int argc, char **argv, port::Options &o) {
+             o.hashPicture = true;
+         } else if (a == "--renderer") {
+             o.renderer = next();
++        } else if (a == "--theme") {
++            o.theme=next();
++            if(o.theme!="clean"&&o.theme!="arcade"&&o.theme!="crt"&&o.theme!="cabinet") {
++                fprintf(stderr,"Unknown theme: %s\n",o.theme.c_str());return false;
++            }
++        } else if(a=="--brightness"||a=="--contrast") {
++            const char *value=next();char *end=nullptr;long number=strtol(value,&end,10);
++            const bool light=a=="--brightness";
++            if(!*value||*end||number<(light?-50:50)||number>(light?50:150)) {
++                fprintf(stderr,"Invalid %s\n",a.c_str());return false;
++            }
++            (light?o.brightness:o.contrast)=int(number);
+         } else if (a == "--present-test") {
+             o.presentTest = next();
+         } else if (a == "--present-size") {
+diff --git a/port/port.h b/port/port.h
+index 69f2a63..2c0be1c 100644
+--- a/port/port.h
++++ b/port/port.h
+@@ -56,6 +56,8 @@ struct Options {
+     bool hashGame = false;     // --hash-game: the state hash without the Z80 and its own memory (to compare --sound driver and z80)
+     int cpuSpeed = 1;         // --cpu-speed
+     std::string renderer;     // --renderer sdl|gpu (gpu unless said)
++    std::string theme = "clean"; // --theme clean|arcade|crt|cabinet
++    int brightness=0,contrast=100;
+     std::string presentTest;  // --present-test FILE.png: the last picture drawn by the GPU path with no window
+     int presentWidth = 0, presentHeight = 0; // --present-size WxH: the window it is drawn in
+     int scale = 0;            // --scale: the window this many times the board's lines (0: the Display page's)
+diff --git a/port/present.cpp b/port/present.cpp
+index 4dcbca8..8b25212 100644
+--- a/port/present.cpp
++++ b/port/present.cpp
+@@ -270,7 +270,9 @@ void Presenter::Draw(SDL_GPUCommandBuffer *commands, SDL_GPUTexture *target, con
+     SDL_EndGPURenderPass(pass);
+ }
+ 
+-void Presenter::Show(const uint32_t *pixels, int width, int height, const SDL_FRect &where) {
++void Presenter::Show(const uint32_t *pixels, int width, int height, const SDL_FRect &where,
++                     const std::function<void(SDL_Renderer *)> &decorate) {
++    pixels=m_color.Apply(pixels,size_t(width)*height);
+     if (m_device) {
+         SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(m_device);
+         if (!commands) {
+@@ -301,6 +303,7 @@ void Presenter::Show(const uint32_t *pixels, int width, int height, const SDL_FR
+         SDL_SetRenderDrawColor(m_renderer, 0, 0, 0, 255);
+         SDL_RenderClear(m_renderer);
+         SDL_RenderTexture(m_renderer, m_texture, nullptr, &where);
++        if(decorate)decorate(m_renderer);
+         SDL_RenderPresent(m_renderer);
+         return;
+     }
+@@ -327,6 +330,7 @@ void Presenter::Show(const uint32_t *pixels, int width, int height, const SDL_FR
+     SDL_SetRenderDrawColor(m_renderer, 0, 0, 0, 255);
+     SDL_RenderClear(m_renderer);
+     SDL_RenderTexture(m_renderer, m_enlarged ? m_enlarged : m_texture, nullptr, &where);
++    if(decorate)decorate(m_renderer);
+     SDL_RenderPresent(m_renderer);
+ }
+ 
+diff --git a/port/present.h b/port/present.h
+index 84348f3..c6aea1e 100644
+--- a/port/present.h
++++ b/port/present.h
+@@ -10,6 +10,8 @@
+ #include <cstdint>
+ #include <string>
+ #include <vector>
++#include <functional>
++#include "color_adjust.h"
+ 
+ namespace port {
+ 
+@@ -49,11 +51,13 @@ public:
+     void Size(int &width, int &height) const;
+     // Shows a picture (`width` x `height` pixels, each red, green, blue and a spare byte in memory) in the
+     // rectangle `where` of the window, the rest black
+-    void Show(const uint32_t *pixels, int width, int height, const SDL_FRect &where);
++    void Show(const uint32_t *pixels, int width, int height, const SDL_FRect &where,
++              const std::function<void(SDL_Renderer *)> &decorate = {});
+     // How the picture's pixels are drawn (FitPicture says where): Sharp unless set
+     void SetScaling(Scaling scaling) {
+         m_scaling = scaling;
+     }
++    void SetColorAdjust(int brightness,int contrast) { m_color.Set(brightness,contrast); }
+ 
+     // For tests: the GPU path with no window. The picture is drawn into `outWidth` x `outHeight` at `where`
+     // as Show would draw it, and read back. False (with the reason) where there is no GPU device.
+@@ -67,6 +71,7 @@ private:
+     void Draw(SDL_GPUCommandBuffer *commands, SDL_GPUTexture *target, const SDL_FRect &where);
+ 
+     SDL_Window *m_window = nullptr;
++    ColorAdjust m_color;
+     Scaling m_scaling = Scaling::Sharp;
+     // GPU
+     SDL_GPUDevice *m_device = nullptr;
+diff --git a/sound/driver.h b/sound/driver.h
+index 781425b..e4bb135 100644
+--- a/sound/driver.h
++++ b/sound/driver.h
+@@ -12,6 +12,7 @@
+ #pragma once
+ 
+ #include <cstddef>
++#include <bit>
+ #include <cstdint>
+ #include <functional>
+ #include <vector>
+@@ -154,7 +155,7 @@ private:
+     }
+     // Its multiplication goes through the first number bit by bit, and adds for each bit that is set
+     uint32_t Product(uint16_t a, uint16_t b) {
+-        Spend(660 + 17 * static_cast<uint32_t>(__builtin_popcount(a)));
++        Spend(660 + 17 * static_cast<uint32_t>(std::popcount(static_cast<unsigned int>(a))));
+         return static_cast<uint32_t>(a) * b;
+     }
+     // The high word of a product: a level times a fraction of 65536
+diff --git a/port/themes.h b/port/themes.h
+new file mode 100644
+--- /dev/null
++++ b/port/themes.h
+@@ -0,0 +1,171 @@
++// SPDX-License-Identifier: GPL-3.0-only
++// Original procedural cabinet and television artwork; no game assets.
++#pragma once
++#include "present.h"
++#include <algorithm>
++#include <cmath>
++
++namespace port {
++enum class Theme { Clean, Arcade, Crt, Cabinet };
++inline Theme ParseTheme(const std::string &name) {
++    return name=="arcade"?Theme::Arcade:name=="crt"?Theme::Crt:name=="cabinet"?Theme::Cabinet:Theme::Clean;
++}
++inline SDL_FRect ThemePicture(Theme theme,int w,int h,int columns,int rows,Shape shape,Scaling scaling) {
++    if(theme==Theme::Clean)return FitPicture(w,h,columns,rows,shape,scaling);
++    SDL_FRect area=theme==Theme::Arcade?SDL_FRect{w*.065f,h*.16f,w*.87f,h*.64f}:SDL_FRect{w*.045f,h*.075f,w*.78f,h*.85f};
++    if(theme==Theme::Cabinet)area={w*.16f,h*.17f,w*.68f,h*.58f};
++    auto r=FitPicture(std::max(1,int(area.w)),std::max(1,int(area.h)),columns,rows,shape,scaling);
++    r.x+=area.x;r.y+=area.y;return r;
++}
++class ThemeOverlay {
++    SDL_Texture *texture=nullptr;
++    int width=0,height=0;
++    Theme cached=Theme::Clean;
++    SDL_FRect screen{};
++    static void Color(SDL_Renderer *r,int red,int green,int blue,int alpha=255) {
++        SDL_SetRenderDrawColor(r,Uint8(red),Uint8(green),Uint8(blue),Uint8(alpha));
++    }
++    static void Rect(SDL_Renderer *r,float x,float y,float w,float h) {
++        SDL_FRect box{x,y,w,h};SDL_RenderFillRect(r,&box);
++    }
++    static void Round(SDL_Renderer *r,float x,float y,float w,float h,float radius) {
++        radius=std::max(0.f,std::min({radius,w/2,h/2}));
++        Rect(r,x+radius,y,w-2*radius,h);Rect(r,x,y+radius,w,h-2*radius);
++        for(int dy=0;dy<int(radius);++dy) {
++            float span=std::sqrt(std::max(0.f,radius*radius-(radius-dy-.5f)*(radius-dy-.5f)));
++            Rect(r,x+radius-span,y+dy,w-2*radius+2*span,1);
++            Rect(r,x+radius-span,y+h-1-dy,w-2*radius+2*span,1);
++        }
++    }
++    static void Disc(SDL_Renderer *r,float cx,float cy,float radius) {
++        Round(r,cx-radius,cy-radius,2*radius,2*radius,radius);
++    }
++    static void Quad(SDL_Renderer *r,SDL_FPoint a,SDL_FPoint b,SDL_FPoint c,SDL_FPoint d,float top,float bottom) {
++        SDL_FColor light{top,top,top,1},dark{bottom,bottom,bottom,1};
++        SDL_Vertex vertices[]={{a,light,{}},{b,light,{}},{c,dark,{}},{a,light,{}},{c,dark,{}},{d,dark,{}}};
++        SDL_RenderGeometry(r,nullptr,vertices,6,nullptr,0);
++    }
++    static void Bat(SDL_Renderer *r,float x,float y,float u) {
++        Color(r,5,6,7);Disc(r,x,y+12*u,25*u);
++        Color(r,20,85,133);Disc(r,x,y+11*u,20*u);
++        Color(r,9,17,23);Disc(r,x,y+11*u,15*u);
++        Color(r,120,126,128);Rect(r,x-3*u,y-33*u,6*u,43*u);
++        Color(r,8,9,10);Round(r,x-11*u,y-68*u,22*u,50*u,10*u);
++        Color(r,33,35,37);Round(r,x-8*u,y-66*u,14*u,44*u,7*u);
++        Color(r,62,64,65);Round(r,x-6*u,y-64*u,4*u,28*u,2*u);
++    }
++public:
++    ~ThemeOverlay(){Close();}
++    void Close(){if(texture)SDL_DestroyTexture(texture);texture=nullptr;width=height=0;}
++    void Draw(SDL_Renderer *r,Theme theme,int w,int h,const SDL_FRect &s) {
++        if(theme==Theme::Clean)return;
++        if(texture&&(width!=w||height!=h||cached!=theme||screen.x!=s.x||screen.y!=s.y||screen.w!=s.w||screen.h!=s.h))Close();
++        if(!texture) {
++            texture=SDL_CreateTexture(r,SDL_PIXELFORMAT_RGBA8888,SDL_TEXTUREACCESS_TARGET,w,h);
++            if(!texture)return;
++            width=w;height=h;cached=theme;screen=s;
++            SDL_SetTextureBlendMode(texture,SDL_BLENDMODE_BLEND);
++            SDL_SetRenderTarget(r,texture);SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_NONE);
++            Color(r,0,0,0,0);SDL_RenderClear(r);
++            const float unit=std::max(1.f,std::min(w/960.f,h/720.f));
++            if(theme==Theme::Arcade) {
++                Color(r,8,10,18);Rect(r,0,0,float(w),float(h));
++                for(int y=0;y<h;++y){int shade=12+int(13.f*y/h);Color(r,shade,shade+2,shade+12);Rect(r,w*.015f,float(y),w*.97f,1);}
++                // Neon trim and a recessed, illuminated marquee.
++                Color(r,18,142,174);Rect(r,w*.025f,h*.02f,3*unit,h*.94f);
++                Color(r,173,39,103);Rect(r,w*.975f-3*unit,h*.02f,3*unit,h*.94f);
++                Color(r,4,5,12);Round(r,w*.065f,h*.035f,w*.87f,h*.095f,10*unit);
++                Color(r,46,211,220);Rect(r,w*.085f,h*.122f,w*.83f,2*unit);
++                SDL_SetRenderScale(r,2*unit,2*unit);
++                Color(r,219,242,245);SDL_RenderDebugText(r,w*.11f/(2*unit),h*.061f/(2*unit),"A R C A D E");
++                Color(r,238,119,170);SDL_RenderDebugText(r,w*.69f/(2*unit),h*.061f/(2*unit),"2 PLAYERS");
++                SDL_SetRenderScale(r,1,1);
++                Color(r,3,4,8);Round(r,s.x-14*unit,s.y-14*unit,s.w+28*unit,s.h+28*unit,12*unit);
++                Color(r,54,61,76);Round(r,s.x-6*unit,s.y-6*unit,s.w+12*unit,s.h+12*unit,5*unit);
++                // Two original six-button control panels.
++                Color(r,7,9,15);Round(r,w*.065f,h*.835f,w*.87f,h*.13f,12*unit);
++                Color(r,58,67,86);Rect(r,w*.09f,h*.847f,w*.82f,2*unit);
++                for(int p=0;p<2;++p) {
++                    float left=w*(p?.55f:.15f),cy=h*.902f;
++                    Color(r,2,3,6);Disc(r,left,cy+9*unit,17*unit);
++                    Color(r,129,140,156);Rect(r,left-3*unit,cy-15*unit,6*unit,26*unit);
++                    Color(r,p?45:177,p?129:32,p?206:86);Disc(r,left,cy-16*unit,12*unit);
++                    for(int b=0;b<6;++b) {
++                        float bx=left+54*unit+(b%3)*26*unit,by=cy-9*unit+(b/3)*25*unit;
++                        Color(r,0,0,0);Disc(r,bx,by+2*unit,10*unit);
++                        Color(r,b<3?197:35,b<3?54:151,b<3?116:181);Disc(r,bx,by,8*unit);
++                        Color(r,240,228,239,80);Disc(r,bx-2*unit,by-3*unit,3*unit);
++                    }
++                }
++            } else if(theme==Theme::Cabinet) {
++                Color(r,12,13,15);Rect(r,0,0,float(w),float(h));
++                // Perspective side cheeks, a recessed monitor and sloped control deck.
++                Quad(r,{w*.105f,h*.025f},{w*.895f,h*.025f},{w*.96f,h*.975f},{w*.04f,h*.975f},.16f,.065f);
++                Quad(r,{w*.12f,h*.045f},{w*.88f,h*.045f},{w*.85f,h*.135f},{w*.15f,h*.135f},.05f,.12f);
++                Color(r,81,83,83);Rect(r,w*.13f,h*.035f,w*.74f,3*unit);
++                Quad(r,{w*.13f,h*.11f},{w*.87f,h*.11f},{w*.89f,h*.79f},{w*.11f,h*.79f},.19f,.105f);
++                Color(r,23,25,25);Round(r,s.x-28*unit,s.y-26*unit,s.w+56*unit,s.h+52*unit,9*unit);
++                Color(r,56,59,58);Round(r,s.x-21*unit,s.y-19*unit,s.w+42*unit,s.h+38*unit,7*unit);
++                Color(r,7,10,10);Round(r,s.x-15*unit,s.y-14*unit,s.w+30*unit,s.h+28*unit,10*unit);
++                // Raised side wings and the black front edge of the deck.
++                Quad(r,{w*.105f,h*.73f},{w*.145f,h*.77f},{w*.08f,h*.96f},{w*.025f,h*.96f},.12f,.065f);
++                Quad(r,{w*.855f,h*.77f},{w*.895f,h*.73f},{w*.975f,h*.96f},{w*.92f,h*.96f},.12f,.065f);
++                Quad(r,{w*.13f,h*.79f},{w*.87f,h*.79f},{w*.95f,h*.945f},{w*.05f,h*.945f},.20f,.115f);
++                Color(r,12,13,14);Rect(r,w*.05f,h*.945f,w*.90f,h*.04f);
++                Color(r,53,56,56);Rect(r,w*.05f,h*.941f,w*.90f,3*unit);
++                for(int p=0;p<2;++p) {
++                    float x=w*(p?.64f:.235f),y=h*.895f;
++                    Bat(r,x,y,unit);
++                    for(int b=0;b<6;++b) {
++                        float bx=x+55*unit+(b%3)*26*unit,by=y-13*unit+(b/3)*25*unit;
++                        Color(r,3,4,5);Round(r,bx-11*unit,by-6*unit,22*unit,15*unit,6*unit);
++                        Color(r,b<3?145:18,b<3?20:35,b<3?24:132);Round(r,bx-10*unit,by-7*unit,20*unit,12*unit,6*unit);
++                        Color(r,b<3?203:40,b<3?48:65,b<3?51:184);Round(r,bx-7*unit,by-6*unit,14*unit,5*unit,3*unit);
++                    }
++                }
++                for(int p=0;p<2;++p) {
++                    float x=w*(.475f+.05f*p),y=h*.815f;
++                    Color(r,10,11,11);Round(r,x-10*unit,y,20*unit,10*unit,5*unit);
++                    Color(r,137,141,138);Round(r,x-9*unit,y-2*unit,18*unit,7*unit,4*unit);
++                }
++            } else {
++                Color(r,13,12,11);Rect(r,0,0,float(w),float(h));
++                Color(r,72,67,60);Round(r,w*.012f,h*.02f,w*.976f,h*.96f,26*unit);
++                Color(r,123,115,101);Round(r,w*.022f,h*.028f,w*.956f,h*.93f,23*unit);
++                Color(r,87,82,73);Round(r,w*.03f,h*.04f,w*.94f,h*.90f,21*unit);
++                Color(r,30,31,29);Round(r,s.x-16*unit,s.y-16*unit,s.w+32*unit,s.h+32*unit,22*unit);
++                Color(r,8,12,12);Round(r,s.x-8*unit,s.y-8*unit,s.w+16*unit,s.h+16*unit,16*unit);
++                float panel=w*.885f;
++                Color(r,48,47,43);Round(r,w*.845f,h*.09f,w*.10f,h*.81f,9*unit);
++                for(int i=0;i<2;++i) {
++                    float cy=h*(.25f+i*.19f);
++                    Color(r,12,13,12);Disc(r,panel,cy,27*unit);
++                    Color(r,103,100,90);Disc(r,panel,cy-2*unit,22*unit);
++                    Color(r,172,166,147);Rect(r,panel-2*unit,cy-20*unit,4*unit,13*unit);
++                }
++                for(int i=0;i<15;++i){Color(r,17,19,17);Rect(r,w*.86f,h*.57f+i*6*unit,w*.06f,2*unit);}
++                Color(r,90,235,132);Disc(r,panel,h*.84f,3*unit);
++                Color(r,198,191,171);SDL_RenderDebugText(r,w*.055f,h*.95f-8,"STEREO  /  CRT");
++            }
++            // The entire game picture remains visible through this aperture.
++            Color(r,0,0,0,0);Rect(r,s.x,s.y,s.w,s.h);
++            SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_BLEND);
++            if(theme==Theme::Crt) {
++                // Stable scanlines; no flicker or animated noise.
++                Color(r,0,0,0,43);
++                int step=std::max(2,int(s.h/224.f));
++                for(int y=int(s.y)+1;y<int(s.y+s.h);y+=step)Rect(r,s.x,float(y),s.w,1);
++                for(int i=0;i<12;++i) {
++                    Color(r,0,0,0,3+(12-i)*2);
++                    SDL_FRect edge{s.x+i,s.y+i,s.w-2*i,s.h-2*i};
++                    if(edge.w>0&&edge.h>0)SDL_RenderRect(r,&edge);
++                }
++                Color(r,191,228,225,12);Rect(r,s.x,s.y,s.w,s.h*.10f);
++            }
++            SDL_SetRenderDrawBlendMode(r,SDL_BLENDMODE_NONE);
++            SDL_SetRenderTarget(r,nullptr);
++        }
++        SDL_RenderTexture(r,texture,nullptr,nullptr);
++    }
++};
++} // namespace port
+diff --git a/port/color_adjust.h b/port/color_adjust.h
+new file mode 100644
+--- /dev/null
++++ b/port/color_adjust.h
+@@ -0,0 +1,30 @@
++// SPDX-License-Identifier: GPL-3.0-only
++#pragma once
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <cstdint>
++#include <vector>
++namespace port {
++class ColorAdjust {
++    int brightness=0,contrast=100;
++    std::array<uint8_t,256> table{};
++    std::vector<uint32_t> buffer;
++public:
++    void Set(int light,int gain) {
++        light=std::clamp(light,-50,50);gain=std::clamp(gain,50,150);
++        if(light==brightness&&gain==contrast)return;
++        brightness=light;contrast=gain;
++        for(int c=0;c<256;++c)table[c]=uint8_t(std::clamp(std::lround((c-128)*gain/100.0+128+light*2.55),0L,255L));
++    }
++    const uint32_t *Apply(const uint32_t *pixels,size_t count) {
++        if(brightness==0&&contrast==100)return pixels;
++        buffer.resize(count);
++        for(size_t i=0;i<count;++i) {
++            auto p=pixels[i];
++            buffer[i]=(p&0xff000000u)|table[p&255]|(uint32_t(table[(p>>8)&255])<<8)|(uint32_t(table[(p>>16)&255])<<16);
++        }
++        return buffer.data();
++    }
++};
++}
