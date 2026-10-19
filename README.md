@@ -1,12 +1,12 @@
 # SFZ2AL Windows — experimental
 
-Adaptação para Windows de Street Fighter Zero 2 Alpha (Asia 960826), baseada no
+Adaptação para Windows de Street Fighter Zero 2 Alpha (Asia 960826 e Brazil 960813), baseada no
 [CPS-2 Recomp](https://github.com/tmcleroy/cps2recomp). Este repositório contém
-código-fonte e ajustes; o usuário fornece seu próprio conjunto sfz2al.zip.
+código-fonte e ajustes; o usuário fornece seu próprio conjunto sfz2al.zip ou sfz2alb.zip completo.
 
 ## Recursos
 
-- Iniciador em português, seleção do ZIP e modos Jogar/Treino.
+- Iniciador em português, seletor Brasil / Ásia, seleção do ZIP e modos Jogar/Treino.
 - Visual de seleção de luta, painel VS, sons originais de interface, volume e opção de silenciar.
 - Painel de prévias animadas locais, com escolha aleatória e pausa.
 - Configuração de teclado e gamepad para dois jogadores, incluindo 3 socos e
@@ -40,11 +40,19 @@ SDK. Use um Developer PowerShell do Visual Studio. Também são necessários:
   https://github.com/libsdl-org/SDL/releases/tag/release-3.4.16
 - Fonte da zlib 1.3.1: https://github.com/madler/zlib/tree/v1.3.1
 - Seu conjunto sfz2al.zip, identificado pelo perfil Asia 960826.
+- Opcional: sfz2alb.zip completo, Brazil 960813, incluindo sfz2alb.key.
 
 Na raiz deste repositório:
 
     ./scripts/bootstrap.ps1
     ./scripts/build.ps1 -Rom "D:/Jogos/sfz2al.zip" -SdlDir "D:/deps/SDL3-3.4.16" -ZlibSource "D:/deps/zlib"
+
+Para compilar também Brasil, execute build.ps1 novamente com `-Game sfz2alb`
+e o caminho do ZIP brasileiro. As duas compilações ficam separadas e o iniciador
+usa sfz2al-game.exe ou sfz2alb-game.exe conforme o seletor. No app, cada edição
+lembra seu ZIP e usa sua própria EEPROM; os controles e ajustes visuais são
+compartilhados. Um pacote 7z precisa ser convertido localmente para ZIP antes;
+o iniciador não lê 7z diretamente.
 
 Bootstrap baixa apenas o toolkit na revisão fixada e aplica o patch. Não baixa
 o jogo e não modifica um checkout que já exista. Build compila primeiro um
@@ -64,6 +72,9 @@ O player usa GDI+ do Windows para reproduzir clipes GIF animados, sem áudio,
 em dist/user/previews. O primeiro clipe é sorteado e os seguintes também,
 evitando repetir imediatamente o mesmo quando há mais de um. Sem clipes,
 o painel VS continua disponível. Iniciar o jogo pausa a prévia.
+As prévias Brasil ficam em dist/user/previews-brasil. Para gerá-las, informe
+`--game dist/sfz2alb-game.exe --out dist/user/previews-brasil` e o ZIP Brasil
+ao script build_previews.py. A troca de edição também troca as prévias.
 
 Brilho e contraste atualizam a prévia imediatamente, mesmo pausada, usando a
 mesma transformação de cores do jogo. Restaurar imagem recupera as cores originais;

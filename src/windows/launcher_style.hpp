@@ -48,7 +48,7 @@ inline void PolygonFill(HDC dc,const POINT *p,int n,COLORREF color) {
     auto brush=CreateSolidBrush(color);auto old=SelectObject(dc,brush);auto pen=SelectObject(dc,GetStockObject(NULL_PEN));
     Polygon(dc,p,n);SelectObject(dc,old);SelectObject(dc,pen);DeleteObject(brush);
 }
-inline void PaintHero(HDC dc) {
+inline void PaintHero(HDC dc,const wchar_t *region=L"ASIA 960826") {
     Fill(dc,{0,0,920,710},background);
     POINT blue[]={{580,0},{920,0},{920,165},{430,165}};
     PolygonFill(dc,blue,4,RGB(20,37,59));
@@ -63,7 +63,7 @@ inline void PaintHero(HDC dc) {
     POINT badge[]={{382,101},{513,101},{500,137},{369,137}};
     PolygonFill(dc,badge,4,red);
     Text(dc,L"ALPHA",{381,100,509,138},badgeFont,ink,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
-    Text(dc,L"ASIA 960826",{718,50,888,80},badgeFont,gold,DT_RIGHT|DT_VCENTER|DT_SINGLELINE);
+    Text(dc,region,{658,50,888,80},badgeFont,gold,DT_RIGHT|DT_VCENTER|DT_SINGLELINE);
     Text(dc,L"VERSÃO EXPERIMENTAL",{680,91,888,116},smallFont,muted,DT_RIGHT|DT_SINGLELINE);
     Fill(dc,{24,162,890,165},red);Fill(dc,{24,162,305,165},gold);
     // Original fighting-game panel: opposing colors, diagonal energy and a VS badge.

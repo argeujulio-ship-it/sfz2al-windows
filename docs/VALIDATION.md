@@ -38,3 +38,17 @@ prévia compara os pixels com a transformação compartilhada pelo jogo em três
 combinações, verifica a moldura inalterada, o quadro pausado e a restauração exata
 das cores originais. Na interface, brilho de 21%, contraste de 79% e restauração
 foram observados sobre a mesma cena pausada. A lógica do jogo não foi recompilada.
+
+Versão Brasil, 18/10/2026: perfil independente Brazil 960813, chave e 18 ROMs
+conferidas; geração própria de código 68000 e Z80, sem reutilizar a tradução Ásia.
+Os 18 percursos de personagens foram executados por 6.500 quadros em referência,
+nativo e conferência por bloco: hashes de estado iguais e zero fallback 68000/Z80
+nas execuções nativas. O WAV de um percurso também coincidiu nos três modos.
+Uma execução adicional de 20.000 quadros coincidiu entre nativo e conferência,
+com zero fallback nativo; a frase de vitória em português foi observada.
+Treino: 4.882 quadros de luta com relógio em 99, 11 reposições de vida em repouso,
+danos preservados e prefixo anterior à luta igual ao modo normal.
+Os quatro testes da interface passaram. Quatro prévias Brasil foram geradas
+somente na instalação local. O seletor separa executável, ROM, EEPROM e prévias;
+os controles e ajustes visuais continuam compartilhados.
+Esses percursos não cobrem todos os finais, variantes ou controles físicos.

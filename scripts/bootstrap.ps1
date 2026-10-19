@@ -17,5 +17,7 @@ $patch = Join-Path $root 'patches/cps2recomp.patch'
 if ($LASTEXITCODE) { throw 'The source patch does not match the pinned toolkit.' }
 & git -C $repo apply $patch
 if ($LASTEXITCODE) { throw 'Could not apply the source patch.' }
-Copy-Item -LiteralPath (Join-Path $root 'profiles/sfz2al') -Destination (Join-Path $repo 'games') -Recurse
+foreach ($gameId in @('sfz2al','sfz2alb')) {
+    Copy-Item -LiteralPath (Join-Path $root "profiles/$gameId") -Destination (Join-Path $repo 'games') -Recurse
+}
 Write-Host 'Toolkit and source profile ready. No game data was downloaded.'

@@ -15,6 +15,10 @@
 namespace fs = std::filesystem;
 static fs::path app;
 static HWND romBox;
+static HWND versionBox;
+static int selectedVersion=0;
+static const wchar_t *versionCodes[]={L"asia",L"brasil"};
+static const wchar_t *versionTitles[]={L"ASIA 960826",L"BRASIL 960813"};
 static HWND themeBox;
 static int selectedTheme=0;
 static const wchar_t *themeCodes[]={L"clean",L"arcade",L"crt",L"cabinet"};
@@ -28,8 +32,28 @@ static HFONT font;
 static std::wstring rom;
 static const wchar_t *defaultRom=L"";
 static void SaveRom() {
-    WritePrivateProfileStringW(L"jogo",L"rom",rom.c_str(),(app/L"launcher.ini").c_str());
+    WritePrivateProfileStringW(L"roms",versionCodes[selectedVersion],rom.c_str(),(app/L"launcher.ini").c_str());
+    if(selectedVersion==0)WritePrivateProfileStringW(L"jogo",L"rom",rom.c_str(),(app/L"launcher.ini").c_str());
     SetWindowTextW(romBox,rom.c_str());
+}
+static void LoadRom() {
+    wchar_t saved[32768];
+    std::wstring fallback;
+    if(selectedVersion==0) {
+        GetPrivateProfileStringW(L"jogo",L"rom",defaultRom,saved,32768,(app/L"launcher.ini").c_str());fallback=saved;
+    } else {
+        const auto local=app/L"user/roms/sfz2alb.zip";
+        if(fs::is_regular_file(local))fallback=local.wstring();
+    }
+    GetPrivateProfileStringW(L"roms",versionCodes[selectedVersion],fallback.c_str(),saved,32768,(app/L"launcher.ini").c_str());rom=saved;
+    if(romBox)SetWindowTextW(romBox,rom.c_str());
+}
+static void StartPreview() {
+    preview.Close();
+    bool ready=preview.Start(app/(selectedVersion==1?L"user/previews-brasil":L"user/previews"));
+    preview.Pause(false);
+    SetWindowTextW(previewToggle,ready?L"Pausar prévia":L"Prévia não preparada");
+    EnableWindow(previewToggle,ready);
 }
 static std::wstring Quote(const std::wstring &s) {
     std::wstring out=L"\"";unsigned slashes=0;
@@ -43,12 +67,12 @@ static void Choose(HWND window) {
     wchar_t file[32768]={};
     OPENFILENAMEW ofn{sizeof(ofn)};ofn.hwndOwner=window;ofn.lpstrFile=file;ofn.nMaxFile=32768;
     ofn.lpstrFilter=L"ROM do jogo (*.zip)\0*.zip\0Todos os arquivos\0*.*\0";
-    ofn.lpstrTitle=L"Escolha seu sfz2al.zip";ofn.Flags=OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST|OFN_NOCHANGEDIR;
+    ofn.lpstrTitle=selectedVersion==1?L"Escolha seu sfz2alb.zip (Brasil)":L"Escolha seu sfz2al.zip (Ásia)";ofn.Flags=OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST|OFN_NOCHANGEDIR;
     if(GetOpenFileNameW(&ofn)) {rom=file;SaveRom();}
 }
 static void Play(HWND window,bool practice) {
     if(!fs::is_regular_file(rom)) {Choose(window);if(!fs::is_regular_file(rom))return;}
-    const fs::path game=app/L"sfz2al-game.exe";
+    const fs::path game=app/(selectedVersion==1?L"sfz2alb-game.exe":L"sfz2al-game.exe");
     if(!fs::is_regular_file(game)) {MessageBoxW(window,L"O executável do jogo não está nesta pasta.",L"SFZ2AL",MB_OK|MB_ICONERROR);return;}
     fs::create_directories(app/L"user");
     fs::path settings=app/L"user"/(practice?L"treino.ini":L"jogo.ini");
@@ -59,7 +83,7 @@ static void Play(HWND window,bool practice) {
     std::vector<std::wstring> args={game.wstring(),L"--rom",rom,L"--cpu",L"native",L"--sound",L"z80",
         L"--theme",themeCodes[selectedTheme],
         L"--brightness",std::to_wstring(brightness),L"--contrast",std::to_wstring(contrast),
-        L"--renderer",L"sdl",L"--scale",L"3",L"--settings",settings.wstring(),L"--eeprom",(app/L"user/board.eeprom").wstring(),
+        L"--renderer",L"sdl",L"--scale",L"3",L"--settings",settings.wstring(),L"--eeprom",(app/(selectedVersion==1?L"user/board-brasil.eeprom":L"user/board.eeprom")).wstring(),
         L"--features",practice?L"infinite_time,refill_health":L"-infinite_time,-refill_health"};
     std::wstring cmd;for(const auto &s:args) {if(!cmd.empty())cmd+=L' ';cmd+=Quote(s);}
     STARTUPINFOW si{sizeof(si)};PROCESS_INFORMATION pi{};
@@ -67,7 +91,7 @@ static void Play(HWND window,bool practice) {
         MessageBoxW(window,L"Não foi possível abrir o jogo.",L"SFZ2AL",MB_OK|MB_ICONERROR);return;
     }
     CloseHandle(pi.hThread);CloseHandle(pi.hProcess);
-    preview.Pause(true);SetWindowTextW(previewToggle,L"Retomar prévia");
+    if(preview.Available()){preview.Pause(true);SetWindowTextW(previewToggle,L"Retomar prévia");}
     ui::Sound(menu_audio::Cue::Launch);
 }
 static HWND Control(HWND w,const wchar_t *type,const wchar_t *text,DWORD style,int x,int y,int width,int height,int id=0) {
@@ -96,13 +120,17 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
         PAINTSTRUCT p;HDC dc=BeginPaint(w,&p);RECT r;GetClientRect(w,&r);
         HDC memory=CreateCompatibleDC(dc);
         bool create=heroCache==nullptr;if(create)heroCache=CreateCompatibleBitmap(dc,r.right,r.bottom);
-        auto previous=SelectObject(memory,heroCache);if(create)ui::PaintHero(memory);
+        auto previous=SelectObject(memory,heroCache);if(create)ui::PaintHero(memory,versionTitles[selectedVersion]);
         preview.Draw(memory);
         BitBlt(dc,0,0,r.right,r.bottom,memory,0,0,SRCCOPY);
         SelectObject(memory,previous);DeleteDC(memory);EndPaint(w,&p);return 0;
     }
     if(m==WM_CREATE) {
         font=CreateFontW(-18,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Segoe UI");
+        versionBox=Control(w,L"COMBOBOX",L"",WS_TABSTOP|CBS_DROPDOWNLIST,638,122,250,120,9);
+        SendMessageW(versionBox,CB_ADDSTRING,0,(LPARAM)L"Ásia — 960826");
+        SendMessageW(versionBox,CB_ADDSTRING,0,(LPARAM)L"Brasil — 960813");
+        SendMessageW(versionBox,CB_SETCURSEL,selectedVersion,0);
         Control(w,L"STATIC",L"SEU JOGO",0,24,184,550,24);
         romBox=Control(w,L"EDIT",rom.c_str(),WS_BORDER|ES_READONLY|ES_AUTOHSCROLL,24,211,424,32);
         Control(w,L"BUTTON",L"Escolher ZIP",WS_TABSTOP,460,211,114,32,1);
@@ -129,9 +157,8 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
         soundSlider=Control(w,TRACKBAR_CLASSW,L"",WS_TABSTOP|TBS_HORZ,310,618,220,36,12);
         SendMessageW(soundSlider,TBM_SETRANGE,TRUE,MAKELPARAM(0,100));SendMessageW(soundSlider,TBM_SETPOS,TRUE,ui::volume);
         soundLabel=Control(w,L"STATIC",(std::to_wstring(ui::volume)+L" %").c_str(),0,552,626,80,26);
-        bool ready=preview.Start(app/L"user/previews");
-        previewToggle=Control(w,L"BUTTON",ready?L"Pausar prévia":L"Prévia não preparada",WS_TABSTOP,620,552,252,34,8);
-        EnableWindow(previewToggle,ready);
+        previewToggle=Control(w,L"BUTTON",L"",WS_TABSTOP,620,552,252,34,8);
+        StartPreview();
         SetTimer(w,2,20,nullptr);
         UpdateImageControls(false);
         return 0;
@@ -154,6 +181,14 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
     }
     if(m==WM_COMMAND) {
         switch(LOWORD(wp)) {
+        case 9:if(HIWORD(wp)==CBN_SELCHANGE) {
+            selectedVersion=int(SendMessageW(versionBox,CB_GETCURSEL,0,0));
+            if(selectedVersion<0||selectedVersion>1)selectedVersion=0;
+            LoadRom();StartPreview();
+            WritePrivateProfileStringW(L"jogo",L"versao",versionCodes[selectedVersion],(app/L"launcher.ini").c_str());
+            DeleteObject(heroCache);heroCache=nullptr;InvalidateRect(w,nullptr,FALSE);
+            ui::Sound(menu_audio::Cue::Confirm);
+        }break;
         case 1:ui::Sound(menu_audio::Cue::Confirm);Choose(w);break;
         case 2:Play(w,false);break;
         case 3:Play(w,true);break;
@@ -178,7 +213,8 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
 }
 int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     SetProcessDPIAware();wchar_t path[32768];GetModuleFileNameW(nullptr,path,32768);app=fs::path(path).parent_path();
-    wchar_t saved[32768];GetPrivateProfileStringW(L"jogo",L"rom",defaultRom,saved,32768,(app/L"launcher.ini").c_str());rom=saved;
+    wchar_t version[32];GetPrivateProfileStringW(L"jogo",L"versao",L"asia",version,32,(app/L"launcher.ini").c_str());
+    selectedVersion=std::wstring(version)==L"brasil"?1:0;LoadRom();
     wchar_t theme[32];GetPrivateProfileStringW(L"video",L"theme",L"clean",theme,32,(app/L"launcher.ini").c_str());
     for(int i=0;i<4;++i)if(std::wstring(theme)==themeCodes[i])selectedTheme=i;
     brightness=std::clamp(int(GetPrivateProfileIntW(L"video",L"brightness",0,(app/L"launcher.ini").c_str())),-50,50);
