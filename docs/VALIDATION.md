@@ -18,6 +18,12 @@
   chaves, dumps, tradução gerada, executáveis ou credenciais nessa seleção.
 - work/, build/ e dist/ foram mantidos fora do índice Git.
 
+Atualização de 18/10/2026: o iniciador recebeu o visual de seleção de luta e
+quatro sinais sintetizados originais. Os testes agora são 3/3: menu_audio,
+controls e themes. O teste local opcional de reprodução foi aceito pelo Windows.
+Na interface foram verificados volume, silêncio, persistência ao reabrir e
+abertura da configuração de controles. A mudança não recompila a lógica do jogo.
+
 Foi necessário limitar os caminhos dos objetos de compilação para evitar um
 problema de comprimento de nomes no Windows. Isso está no script build.ps1.
 Não foi feita validação em uma instalação limpa de outra máquina.

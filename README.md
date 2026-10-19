@@ -7,6 +7,7 @@ código-fonte e ajustes; o usuário fornece seu próprio conjunto sfz2al.zip.
 ## Recursos
 
 - Iniciador em português, seleção do ZIP e modos Jogar/Treino.
+- Visual de seleção de luta, painel VS, sons originais de interface, volume e opção de silenciar.
 - Configuração de teclado e gamepad para dois jogadores, incluindo 3 socos e
   3 chutes em um botão.
 - Temas Imagem limpa, Fliperama, TV de tubo e Gabinete clássico.
@@ -64,7 +65,7 @@ Depois de bootstrap, com o SDK SDL disponível:
     Copy-Item "D:/deps/SDL3-3.4.16/lib/x64/SDL3.dll" build/
     ctest --test-dir build --output-on-failure
 
-Esses testes verificam configuração e salvamento dos dois jogadores, ações
+Os três testes verificam síntese dos sons, configuração e salvamento dos dois jogadores, ações
 simultâneas, recuperação de falhas, molduras e transformação de cores. Eles
 não substituem validação de uma partida completa.
 

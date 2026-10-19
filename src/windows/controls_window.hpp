@@ -47,6 +47,7 @@ static void RefreshBindings() {
 }
 static void CancelCapture() {capturing=-1;SetWindowTextW(controlsStatus,L"Escolha uma ação. Entradas repetidas trocam de lugar no mesmo jogador.");}
 static void BeginCapture(int a) {
+    ui::Sound(menu_audio::Cue::Confirm);
     capturing=a;captureReleased=false;
     std::wstring text=std::wstring(actionNames[a])+L": pressione "+std::wstring(currentDevice?L"um botão ou gatilho. Esc cancela.":L"uma tecla. Esc cancela; Delete remove a tecla.");
     SetWindowTextW(controlsStatus,text.c_str());SetFocus(controlsWindow);
@@ -87,6 +88,7 @@ static void PollPads() {
     if(captureReleased){controls::AssignPad(draft,currentPlayer,capturing,pressed);CancelCapture();RefreshBindings();}
 }
 static LRESULT CALLBACK ControlsProc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
+    LRESULT styled;if(ui::Message(w,m,wp,lp,styled))return styled;
     if(m==WM_CREATE) {
         controlsWindow=w;draft=controls::Load(app);currentPlayer=0;currentDevice=0;capturing=-1;
         Control(w,L"STATIC",L"Configure os dois jogadores",0,20,15,610,25);
@@ -125,8 +127,8 @@ static LRESULT CALLBACK ControlsProc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
         else if(id>=300&&id<300+port::kBoundActionCount)BeginCapture(id-300);
         else if(id>=200&&id<200+port::kBoundActionCount&&notification==CBN_SELCHANGE){CancelCapture();int choice=int(SendMessageW(captureRows[id-200],CB_GETCURSEL,0,0));if(choice>=0)controls::AssignPad(draft,currentPlayer,id-200,padOptions[choice]);RefreshBindings();}
         else if(id==30){auto defaults=controls::Defaults();for(int a=0;a<port::kBoundActionCount;++a)if(currentDevice)draft.pad[currentPlayer][a]=defaults.pad[currentPlayer][a];else draft.key[currentPlayer][a]=defaults.key[currentPlayer][a];CancelCapture();RefreshBindings();}
-        else if(id==31)SendMessageW(w,WM_CLOSE,0,0);
-        else if(id==32){std::wstring error;if(controls::Save(app,draft,error)){DestroyWindow(w);}else MessageBoxW(w,error.c_str(),L"Controles",MB_OK|MB_ICONERROR);}
+        else if(id==31){ui::Sound(menu_audio::Cue::Back);SendMessageW(w,WM_CLOSE,0,0);}
+        else if(id==32){std::wstring error;if(controls::Save(app,draft,error)){ui::Sound(menu_audio::Cue::Confirm);DestroyWindow(w);}else MessageBoxW(w,error.c_str(),L"Controles",MB_OK|MB_ICONERROR);}
         return 0;
     }
     if(m==WM_CLOSE){DestroyWindow(w);return 0;}
@@ -135,9 +137,9 @@ static LRESULT CALLBACK ControlsProc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
 }
 static void OpenControls(HWND owner) {
     if(controlsWindow){SetForegroundWindow(controlsWindow);return;}
-    WNDCLASSW wc{};wc.lpfnWndProc=ControlsProc;wc.hInstance=GetModuleHandleW(nullptr);wc.lpszClassName=L"SFZ2ALControls";wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);wc.hbrBackground=(HBRUSH)(COLOR_WINDOW+1);RegisterClassW(&wc);
+    WNDCLASSW wc{};wc.lpfnWndProc=ControlsProc;wc.hInstance=GetModuleHandleW(nullptr);wc.lpszClassName=L"SFZ2ALControls";wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);wc.hbrBackground=ui::bgBrush;RegisterClassW(&wc);
     RECT r{0,0,640,742};AdjustWindowRect(&r,WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU,FALSE);
     EnableWindow(owner,FALSE);
-    HWND w=CreateWindowExW(WS_EX_APPWINDOW,wc.lpszClassName,L"SFZ2AL — Controles",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU,CW_USEDEFAULT,CW_USEDEFAULT,r.right-r.left,r.bottom-r.top,owner,nullptr,wc.hInstance,nullptr);
-    if(w){ShowWindow(w,SW_SHOW);RedrawWindow(w,nullptr,nullptr,RDW_INVALIDATE|RDW_ALLCHILDREN|RDW_UPDATENOW);}else EnableWindow(owner,TRUE);
+    HWND w=CreateWindowExW(WS_EX_APPWINDOW,wc.lpszClassName,L"SFZ2AL — Controles",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_CLIPCHILDREN,CW_USEDEFAULT,CW_USEDEFAULT,r.right-r.left,r.bottom-r.top,owner,nullptr,wc.hInstance,nullptr);
+    if(w){ui::Caption(w);ShowWindow(w,SW_SHOW);RedrawWindow(w,nullptr,nullptr,RDW_INVALIDATE|RDW_ALLCHILDREN|RDW_UPDATENOW);}else EnableWindow(owner,TRUE);
 }

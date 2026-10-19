@@ -9,6 +9,9 @@ O texto da licença GPL v3 está em LICENSE.
 
 A interface Win32, os ajustes de imagem e a arte procedural dos gabinetes foram
 desenvolvidos nesta adaptação. Os testes e scripts novos usam GPL-3.0-only.
+Os sinais de áudio da interface são sintetizados por menu_audio.hpp e não usam
+amostras ou melodias extraídas do jogo. A tipografia e os painéis do iniciador
+são desenhados pelo programa, sem imagem do logotipo original.
 Os números de endereço nos arquivos entries-main.txt e entries-z80.txt são
 metadados de cobertura; não contêm instruções traduzidas nem dados de ROM.
 
