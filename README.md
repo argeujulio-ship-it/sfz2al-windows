@@ -8,6 +8,7 @@ código-fonte e ajustes; o usuário fornece seu próprio conjunto sfz2al.zip.
 
 - Iniciador em português, seleção do ZIP e modos Jogar/Treino.
 - Visual de seleção de luta, painel VS, sons originais de interface, volume e opção de silenciar.
+- Painel de prévias animadas locais, com escolha aleatória e pausa.
 - Configuração de teclado e gamepad para dois jogadores, incluindo 3 socos e
   3 chutes em um botão.
 - Temas Imagem limpa, Fliperama, TV de tubo e Gabinete clássico.
@@ -56,6 +57,28 @@ ROM pessoal embutido. As configurações são guardadas junto ao executável.
 Não publique work/ ou dist/: eles contêm código produzido a partir do jogo.
 Não há release binária neste repositório.
 
+## Prévias animadas locais
+
+O player usa GDI+ do Windows para reproduzir clipes GIF animados, sem áudio,
+em dist/user/previews. O primeiro clipe é sorteado e os seguintes também,
+evitando repetir imediatamente o mesmo quando há mais de um. Sem clipes,
+o painel VS continua disponível. Iniciar o jogo pausa a prévia.
+
+Os clipes não são distribuídos. Para gerá-los da sua ROM, instale Pillow no
+Python usado localmente e execute após a compilação:
+
+    python scripts/build_previews.py --rom "D:/Jogos/sfz2al.zip"
+
+Os arquivos em profiles/previews são sequências de botões e números de quadro,
+sem imagens, áudio ou código do jogo. Os replays foram conferidos com uma
+EEPROM inicializada: se a configuração da sua placa for diferente, forneça uma
+cópia local compatível por --seed-eeprom. Esse arquivo também não é distribuído.
+
+O script cria quatro clipes de aproximadamente seis segundos, com imagem
+320x240 em proporção 4:3, e valida que possuem vários quadros. GIF foi escolhido
+para a prévia não exigir codecs de vídeo adicionais. Não inclua esses arquivos
+gerados em commits ou no pacote de fontes.
+
 ## Testes sem ROM
 
 Depois de bootstrap, com o SDK SDL disponível:
@@ -65,7 +88,7 @@ Depois de bootstrap, com o SDK SDL disponível:
     Copy-Item "D:/deps/SDL3-3.4.16/lib/x64/SDL3.dll" build/
     ctest --test-dir build --output-on-failure
 
-Os três testes verificam síntese dos sons, configuração e salvamento dos dois jogadores, ações
+Os quatro testes verificam animação da prévia, síntese dos sons, configuração e salvamento dos dois jogadores, ações
 simultâneas, recuperação de falhas, molduras e transformação de cores. Eles
 não substituem validação de uma partida completa.
 

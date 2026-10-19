@@ -20,6 +20,10 @@ do jogo, sprites, áudio, screenshots do jogo ou executáveis. As prévias PNG u
 uma grade original de calibração de cores. A fotografia de referência do usuário
 não faz parte do repositório.
 
+Os clipes animados de luta são gerados localmente a partir da ROM do usuário e
+não devem ser distribuídos com estes fontes. O teste do player inclui apenas
+um GIF sintético original com dois quadros de cor sólida, sem conteúdo do jogo.
+
 Street Fighter e seus personagens são marcas e conteúdo de seus respectivos
 titulares. O projeto é independente e não é afiliado à Capcom.
 

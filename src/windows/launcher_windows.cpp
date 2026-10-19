@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include "launcher_style.hpp"
+#include "game_preview.hpp"
 
 namespace fs = std::filesystem;
 static fs::path app;
@@ -20,6 +21,9 @@ static const wchar_t *themeCodes[]={L"clean",L"arcade",L"crt",L"cabinet"};
 static HWND brightnessSlider,contrastSlider,brightnessLabel,contrastLabel;
 static int brightness=0,contrast=100;
 static HWND soundToggle,soundSlider,soundLabel;
+static HWND previewToggle;
+static GamePreview preview;
+static HBITMAP heroCache;
 static HFONT font;
 static std::wstring rom;
 static const wchar_t *defaultRom=L"";
@@ -63,6 +67,7 @@ static void Play(HWND window,bool practice) {
         MessageBoxW(window,L"Não foi possível abrir o jogo.",L"SFZ2AL",MB_OK|MB_ICONERROR);return;
     }
     CloseHandle(pi.hThread);CloseHandle(pi.hProcess);
+    preview.Pause(true);SetWindowTextW(previewToggle,L"Retomar prévia");
     ui::Sound(menu_audio::Cue::Launch);
 }
 static HWND Control(HWND w,const wchar_t *type,const wchar_t *text,DWORD style,int x,int y,int width,int height,int id=0) {
@@ -87,10 +92,12 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
     LRESULT styled;if(ui::Message(w,m,wp,lp,styled))return styled;
     if(m==WM_PAINT) {
         PAINTSTRUCT p;HDC dc=BeginPaint(w,&p);RECT r;GetClientRect(w,&r);
-        HDC memory=CreateCompatibleDC(dc);HBITMAP bitmap=CreateCompatibleBitmap(dc,r.right,r.bottom);
-        auto previous=SelectObject(memory,bitmap);ui::PaintHero(memory);
+        HDC memory=CreateCompatibleDC(dc);
+        bool create=heroCache==nullptr;if(create)heroCache=CreateCompatibleBitmap(dc,r.right,r.bottom);
+        auto previous=SelectObject(memory,heroCache);if(create)ui::PaintHero(memory);
+        preview.Draw(memory);
         BitBlt(dc,0,0,r.right,r.bottom,memory,0,0,SRCCOPY);
-        SelectObject(memory,previous);DeleteObject(bitmap);DeleteDC(memory);EndPaint(w,&p);return 0;
+        SelectObject(memory,previous);DeleteDC(memory);EndPaint(w,&p);return 0;
     }
     if(m==WM_CREATE) {
         font=CreateFontW(-18,0,0,0,FW_NORMAL,FALSE,FALSE,FALSE,DEFAULT_CHARSET,0,0,CLEARTYPE_QUALITY,0,L"Segoe UI");
@@ -120,7 +127,15 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
         soundSlider=Control(w,TRACKBAR_CLASSW,L"",WS_TABSTOP|TBS_HORZ,310,618,220,36,12);
         SendMessageW(soundSlider,TBM_SETRANGE,TRUE,MAKELPARAM(0,100));SendMessageW(soundSlider,TBM_SETPOS,TRUE,ui::volume);
         soundLabel=Control(w,L"STATIC",(std::to_wstring(ui::volume)+L" %").c_str(),0,552,626,80,26);
+        bool ready=preview.Start(app/L"user/previews");
+        previewToggle=Control(w,L"BUTTON",ready?L"Pausar prévia":L"Prévia não preparada",WS_TABSTOP,620,552,252,34,8);
+        EnableWindow(previewToggle,ready);
+        SetTimer(w,2,20,nullptr);
         UpdateImageControls(false);
+        return 0;
+    }
+    if(m==WM_TIMER&&wp==2) {
+        if(!IsIconic(w)&&preview.Tick()){RECT r{602,190,890,594};InvalidateRect(w,&r,FALSE);}
         return 0;
     }
     if(m==WM_HSCROLL) {
@@ -152,9 +167,11 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
         case 7:ui::soundEnabled=SendMessageW(soundToggle,BM_GETCHECK,0,0)==BST_CHECKED;
             WritePrivateProfileStringW(L"interface",L"sounds",ui::soundEnabled?L"1":L"0",(app/L"launcher.ini").c_str());
             if(ui::soundEnabled)ui::Sound(menu_audio::Cue::Confirm);else PlaySoundW(nullptr,nullptr,0);break;
+        case 8:preview.Pause(!preview.Paused());SetWindowTextW(previewToggle,preview.Paused()?L"Retomar prévia":L"Pausar prévia");
+            ui::Sound(menu_audio::Cue::Confirm);InvalidateRect(w,nullptr,FALSE);break;
         }return 0;
     }
-    if(m==WM_DESTROY) {DeleteObject(font);ui::Close();PostQuitMessage(0);return 0;}
+    if(m==WM_DESTROY) {KillTimer(w,2);preview.Close();DeleteObject(heroCache);DeleteObject(font);ui::Close();PostQuitMessage(0);return 0;}
     return DefWindowProcW(w,m,wp,lp);
 }
 int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {

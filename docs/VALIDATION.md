@@ -27,3 +27,8 @@ abertura da configuração de controles. A mudança não recompila a lógica do 
 Foi necessário limitar os caminhos dos objetos de compilação para evitar um
 problema de comprimento de nomes no Windows. Isso está no script build.ps1.
 Não foi feita validação em uma instalação limpa de outra máquina.
+
+Atualização das prévias, 18/10/2026: os testes passaram em 4/4, incluindo
+reprodução GIF, mudança dos pixels, pausa, retomada, troca sem repetição imediata
+e funcionamento sem mídia. O teste usa cores sólidas originais; os quatro clipes
+de luta foram gerados e validados apenas na instalação local, fora do Git.

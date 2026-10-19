@@ -12,6 +12,7 @@ __pycache__/
 *.eeprom
 *.state
 *.log
+*.gif
 launcher.ini
 *.controls.bak
 *.controls.tmp
