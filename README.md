@@ -31,6 +31,26 @@ O treino básico não impede um nocaute. O analógico esquerdo mantém o movimen
 os controles são atribuídos pela ordem em que o jogo os reconhece. Ainda faltam
 validação ampla de controles físicos, variantes, todos os finais e áudio.
 
+## Pacote com executáveis
+
+Também foi preparado um ZIP Windows x64 experimental para a seção Releases,
+separado dos arquivos rastreados neste repositório. Ele contém SFZ2AL.exe,
+sfz2al-game.exe, sfz2alb-game.exe, SDL3.dll, configurações padrão e licenças.
+Não contém ROMs, chaves, mídia de gameplay nem configurações pessoais.
+
+Quem usar esse pacote extrai toda a pasta, coloca seu ZIP completo em user/roms,
+abre SFZ2AL.exe e escolhe Brasil ou Ásia. Não precisa compilar para usar os EXEs
+desse pacote. As instruções de compilação abaixo continuam disponíveis para
+quem quiser gerar sua própria versão a partir dos fontes e da ROM local.
+
+Os executáveis do jogo incluem a tradução nativa compilada do programa 68000/Z80;
+não são uma reimplementação independente. Excluir os ZIPs de ROM da release não
+exclui esse código traduzido dos executáveis. A preparação do pacote não equivale
+a uma avaliação jurídica de sua distribuição. Ainda não houve publicação online.
+
+Pode ser necessário instalar o [Microsoft Visual C++ v14 Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
+Não foi feito teste em uma instalação limpa de outro computador.
+
 ## Compilação local
 
 ### ROMs compatíveis e onde colocá-las
@@ -71,9 +91,10 @@ a partir da pasta do app, permitindo mudar a instalação de lugar.
 O iniciador lê ZIP, não 7z ou RAR.
 
 Essa estrutura é para a instalação local, não para o conteúdo do GitHub.
-O repositório contém fontes e instruções de compilação; cada usuário fornece
-suas ROMs e gera os executáveis do jogo localmente. Não envie ROMs, chaves,
-prévias de gameplay, código traduzido ou a pasta dist para o GitHub.
+O repositório de fontes contém as instruções de compilação; quem compila fornece
+sua ROM local. O pacote binário descrito acima é preparado separadamente para
+Releases. Não envie ROMs, chaves, prévias de gameplay ou a pasta de uso pessoal
+inteira para o GitHub.
 
 ### Dependências e comandos
 
@@ -107,8 +128,9 @@ nessa preparação não é apresentado como tradução nativa concluída.
 O resultado fica em dist/. Abra SFZ2AL.exe e selecione seu ZIP; não há caminho de
 ROM pessoal embutido. As configurações são guardadas junto ao executável.
 SFZ2AL.exe tem um ícone original com Z2 dourado para identificar o iniciador.
-Não publique work/ ou dist/: eles contêm código produzido a partir do jogo.
-Não há release binária neste repositório.
+Não envie work/ ou dist/ inteiros: podem conter ROMs e configurações pessoais.
+O pacote de executáveis para Releases usa uma seleção explícita de arquivos;
+os binários continuam fora do índice Git de fontes.
 
 ## Prévias animadas locais
 
