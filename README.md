@@ -65,9 +65,10 @@ dist/
 
 Crie user/roms e mantenha os ZIPs compactados. No app, selecione a edição e use
 Escolher ZIP para indicar o arquivo correspondente; ele lembra os caminhos.
-Outras pastas também são aceitas. O app procura automaticamente a cópia Brasil
-em user/roms/sfz2alb.zip quando ainda não há caminho salvo; para Ásia, use o seletor
-de arquivo. O iniciador lê ZIP, não 7z ou RAR.
+Outras pastas também são aceitas. Quando ainda não há caminho salvo, o app procura
+as duas edições em user/roms. Caminhos relativos no launcher.ini são resolvidos
+a partir da pasta do app, permitindo mudar a instalação de lugar.
+O iniciador lê ZIP, não 7z ou RAR.
 
 Essa estrutura é para a instalação local, não para o conteúdo do GitHub.
 O repositório contém fontes e instruções de compilação; cada usuário fornece

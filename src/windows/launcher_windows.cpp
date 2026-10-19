@@ -40,12 +40,15 @@ static void LoadRom() {
     wchar_t saved[32768];
     std::wstring fallback;
     if(selectedVersion==0) {
-        GetPrivateProfileStringW(L"jogo",L"rom",defaultRom,saved,32768,(app/L"launcher.ini").c_str());fallback=saved;
+        const auto local=app/L"user/roms/sfz2al.zip";
+        if(fs::is_regular_file(local))fallback=local.wstring();
+        else {GetPrivateProfileStringW(L"jogo",L"rom",defaultRom,saved,32768,(app/L"launcher.ini").c_str());fallback=saved;}
     } else {
         const auto local=app/L"user/roms/sfz2alb.zip";
         if(fs::is_regular_file(local))fallback=local.wstring();
     }
     GetPrivateProfileStringW(L"roms",versionCodes[selectedVersion],fallback.c_str(),saved,32768,(app/L"launcher.ini").c_str());rom=saved;
+    if(!rom.empty()&&fs::path(rom).is_relative())rom=(app/fs::path(rom)).lexically_normal().wstring();
     if(romBox)SetWindowTextW(romBox,rom.c_str());
 }
 static void StartPreview() {

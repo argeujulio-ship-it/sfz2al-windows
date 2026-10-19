@@ -52,3 +52,8 @@ Os quatro testes da interface passaram. Quatro prévias Brasil foram geradas
 somente na instalação local. O seletor separa executável, ROM, EEPROM e prévias;
 os controles e ajustes visuais continuam compartilhados.
 Esses percursos não cobrem todos os finais, variantes ou controles físicos.
+
+Entrega organizada: o iniciador resolve caminhos relativos ao seu executável e
+procura as duas ROMs em user/roms quando ainda não há caminho salvo. A pasta de
+fontes fica separada da instalação local, sem copiar backups ou caches de build.
+Os testes de interface passaram novamente após esse ajuste de caminhos.
