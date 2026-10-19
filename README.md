@@ -33,6 +33,49 @@ validação ampla de controles físicos, variantes, todos os finais e áudio.
 
 ## Compilação local
 
+### ROMs compatíveis e onde colocá-las
+
+| Opção no app | Conjunto | Revisão | Chave dentro do ZIP |
+|---|---|---|---|
+| Ásia | sfz2al.zip | Asia 960826 | sfz2al.key — 20 bytes, CRC32 2904963e |
+| Brasil | sfz2alb.zip | Brazil 960813 | sfz2alb.key — 20 bytes, CRC32 c8b3ac73 |
+
+Use um ZIP completo por edição: seis ROMs de programa, oito de gráficos, duas
+de programa de áudio, duas de amostras e a chave regional. Os nomes e CRC32 de
+cada entrada estão em profiles/sfz2al/game.cfg e profiles/sfz2alb/game.cfg.
+Não basta renomear outro ZIP: sfa2, outras regiões, revisões modificadas e
+conjuntos descriptografados/Phoenix não são os alvos desses perfis.
+O critério de compatibilidade é o conteúdo e seus checksums, não apenas a versão
+do MAME usada para catalogá-lo. Um clone split só com as diferenças não é o
+ZIP completo recomendado aqui. Não é necessário ter as duas edições: compile
+e selecione a que você possui; para alternar entre ambas, compile ambas.
+
+Depois da compilação, a organização recomendada, relativa à pasta do app, é:
+
+```text
+dist/
+  SFZ2AL.exe
+  sfz2al-game.exe       (gerado localmente para Ásia)
+  sfz2alb-game.exe      (gerado localmente para Brasil)
+  user/
+    roms/
+      sfz2al.zip
+      sfz2alb.zip
+```
+
+Crie user/roms e mantenha os ZIPs compactados. No app, selecione a edição e use
+Escolher ZIP para indicar o arquivo correspondente; ele lembra os caminhos.
+Outras pastas também são aceitas. O app procura automaticamente a cópia Brasil
+em user/roms/sfz2alb.zip quando ainda não há caminho salvo; para Ásia, use o seletor
+de arquivo. O iniciador lê ZIP, não 7z ou RAR.
+
+Essa estrutura é para a instalação local, não para o conteúdo do GitHub.
+O repositório contém fontes e instruções de compilação; cada usuário fornece
+suas ROMs e gera os executáveis do jogo localmente. Não envie ROMs, chaves,
+prévias de gameplay, código traduzido ou a pasta dist para o GitHub.
+
+### Dependências e comandos
+
 Requer Windows x64, Git, Python 3, CMake 3.28 ou superior, Ninja e MSVC com Windows
 SDK. Use um Developer PowerShell do Visual Studio. Também são necessários:
 

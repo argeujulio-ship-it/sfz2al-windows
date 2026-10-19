@@ -11,7 +11,7 @@ for name in filter(None, tracked):
     p = root / name
     if name.startswith(("work/", "build/", "dist/", ".git/")):
         bad.append((name, "private build folder"))
-    if p.suffix.lower() in {".zip", ".key", ".bin", ".exe", ".dll", ".obj", ".pdb", ".eeprom", ".state", ".wav", ".mp4", ".gif"}:
+    if p.suffix.lower() in {".zip", ".7z", ".rar", ".key", ".bin", ".exe", ".dll", ".obj", ".pdb", ".eeprom", ".state", ".wav", ".mp4", ".gif"}:
         bad.append((name, "binary or game data"))
     if re.search(r"/(?:native|z80)_\d+\.cpp$", name):
         bad.append((name, "translated program"))
