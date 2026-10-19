@@ -28,9 +28,21 @@ int main(int argc,char **argv) {
  while(preview.FrameIndex()==startFrame&&GetTickCount64()<deadline){Sleep(5);preview.Tick();}
  assert(preview.FrameIndex()!=startFrame);preview.Draw(dc);assert(GetPixel(dc,746,345)!=before);
  preview.Pause(true);auto pausedFrame=preview.FrameIndex();Sleep(150);assert(!preview.Tick());assert(preview.FrameIndex()==pausedFrame);
+ preview.Draw(dc);auto original=GetPixel(dc,746,345),border=GetPixel(dc,610,450);
+ auto expected=[&](int light,int gain) {
+  port::ColorAdjust transform;transform.Set(light,gain);
+  uint32_t pixel=GetRValue(original)|(uint32_t(GetGValue(original))<<8)|(uint32_t(GetBValue(original))<<16);
+  auto mapped=transform.Apply(&pixel,1)[0];return RGB(mapped&255,(mapped>>8)&255,(mapped>>16)&255);
+ };
+ for(auto values:{std::pair{15,100},std::pair{0,50},std::pair{-20,125}}) {
+  preview.SetColorAdjust(values.first,values.second);preview.Draw(dc);
+  assert(GetPixel(dc,746,345)==expected(values.first,values.second));
+  assert(GetPixel(dc,610,450)==border);assert(preview.FrameIndex()==pausedFrame);
+ }
+ preview.SetColorAdjust(0,100);preview.Draw(dc);assert(GetPixel(dc,746,345)==original);
  preview.Pause(false);auto first=preview.ClipName();deadline=GetTickCount64()+1500;
  while(preview.ClipName()==first&&GetTickCount64()<deadline){Sleep(5);preview.Tick();}
  assert(preview.ClipName()!=first);
  preview.Close();SelectObject(dc,old);DeleteObject(bitmap);DeleteDC(dc);ui::Close();
- std::cout<<"PASS: missing-media fallback, original GIF decode/render, advancing pixels, pause/resume and non-repeating random clips.\n";
+ std::cout<<"PASS: GIF render, animation, pause, random clips; live brightness/contrast match game LUT while paused, frame unchanged, border untouched, exact reset.\n";
 }

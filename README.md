@@ -64,6 +64,10 @@ em dist/user/previews. O primeiro clipe é sorteado e os seguintes também,
 evitando repetir imediatamente o mesmo quando há mais de um. Sem clipes,
 o painel VS continua disponível. Iniciar o jogo pausa a prévia.
 
+Brilho e contraste atualizam a prévia imediatamente, mesmo pausada, usando a
+mesma transformação de cores do jogo. Restaurar imagem recupera as cores originais;
+as cores da moldura e dos textos não mudam.
+
 Os clipes não são distribuídos. Para gerá-los da sua ROM, instale Pillow no
 Python usado localmente e execute após a compilação:
 

@@ -32,3 +32,9 @@ Atualização das prévias, 18/10/2026: os testes passaram em 4/4, incluindo
 reprodução GIF, mudança dos pixels, pausa, retomada, troca sem repetição imediata
 e funcionamento sem mídia. O teste usa cores sólidas originais; os quatro clipes
 de luta foram gerados e validados apenas na instalação local, fora do Git.
+
+Brilho e contraste na prévia: os quatro testes passaram novamente. O teste de
+prévia compara os pixels com a transformação compartilhada pelo jogo em três
+combinações, verifica a moldura inalterada, o quadro pausado e a restauração exata
+das cores originais. Na interface, brilho de 21%, contraste de 79% e restauração
+foram observados sobre a mesma cena pausada. A lógica do jogo não foi recompilada.

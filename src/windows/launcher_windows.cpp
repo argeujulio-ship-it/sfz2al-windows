@@ -78,6 +78,8 @@ static HWND Control(HWND w,const wchar_t *type,const wchar_t *text,DWORD style,i
 }
 #include "controls_window.hpp"
 static void UpdateImageControls(bool save) {
+    preview.SetColorAdjust(brightness,contrast);
+    RECT imagePanel{602,190,890,594};InvalidateRect(GetParent(brightnessSlider),&imagePanel,FALSE);
     SendMessageW(brightnessSlider,TBM_SETPOS,TRUE,brightness+50);
     SendMessageW(contrastSlider,TBM_SETPOS,TRUE,contrast);
     SetWindowTextW(brightnessLabel,(std::to_wstring(brightness)+L" %").c_str());

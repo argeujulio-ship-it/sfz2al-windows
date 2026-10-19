@@ -7,6 +7,7 @@
 #include <random>
 #include <vector>
 #include <cwctype>
+#include "color_adjust.h"
 #pragma comment(lib,"gdiplus.lib")
 class GamePreview {
     ULONG_PTR token=0;
@@ -18,6 +19,30 @@ class GamePreview {
     size_t current=SIZE_MAX;
     ULONGLONG due=0;
     bool paused=false;
+    int brightness=0,contrast=100;
+    port::ColorAdjust color;
+    std::unique_ptr<Gdiplus::Bitmap> adjusted;
+    bool colorDirty=true;
+    Gdiplus::Image *AdjustedFrame() {
+        if(brightness==0&&contrast==100)return image.get();
+        const int width=int(image->GetWidth()),height=int(image->GetHeight());
+        if(!adjusted)adjusted=std::make_unique<Gdiplus::Bitmap>(width,height,PixelFormat32bppARGB);
+        if(!colorDirty)return adjusted.get();
+        {
+            Gdiplus::Graphics canvas(adjusted.get());
+            canvas.SetCompositingMode(Gdiplus::CompositingModeSourceCopy);
+            canvas.DrawImage(image.get(),0,0,width,height);
+        }
+        Gdiplus::Rect area(0,0,width,height);Gdiplus::BitmapData pixels{};
+        if(adjusted->LockBits(&area,Gdiplus::ImageLockModeRead|Gdiplus::ImageLockModeWrite,PixelFormat32bppARGB,&pixels)!=Gdiplus::Ok)
+            return image.get();
+        for(int y=0;y<height;++y) {
+            auto row=reinterpret_cast<uint32_t*>(static_cast<BYTE*>(pixels.Scan0)+ptrdiff_t(y)*pixels.Stride);
+            const auto mapped=color.Apply(row,size_t(width));
+            std::copy_n(mapped,width,row);
+        }
+        adjusted->UnlockBits(&pixels);colorDirty=false;return adjusted.get();
+    }
     bool Next() {
         if(files.empty())return false;
         size_t choice=std::uniform_int_distribution<size_t>(0,files.size()-1)(random);
@@ -25,7 +50,7 @@ class GamePreview {
             choice=std::uniform_int_distribution<size_t>(0,files.size()-2)(random);
             if(choice>=current)++choice;
         }
-        image.reset();count=0;current=choice;
+        adjusted.reset();colorDirty=true;image.reset();count=0;current=choice;
         for(size_t attempt=0;attempt<files.size();++attempt) {
             image=std::make_unique<Gdiplus::Image>(files[current].c_str());
             if(image->GetLastStatus()==Gdiplus::Ok) {
@@ -61,7 +86,12 @@ public:
         }
         return Next();
     }
-    void Close() {image.reset();files.clear();if(token)Gdiplus::GdiplusShutdown(token);token=0;}
+    void Close() {adjusted.reset();image.reset();files.clear();if(token)Gdiplus::GdiplusShutdown(token);token=0;}
+    void SetColorAdjust(int light,int gain) {
+        light=std::clamp(light,-50,50);gain=std::clamp(gain,50,150);
+        if(light==brightness&&gain==contrast)return;
+        brightness=light;contrast=gain;color.Set(light,gain);colorDirty=true;
+    }
     bool Available() const {return image!=nullptr;}
     unsigned FrameIndex() const {return frame;}
     std::wstring ClipName() const {return current<files.size()?files[current].filename().wstring():L"";}
@@ -72,7 +102,7 @@ public:
         ULONGLONG now=GetTickCount64();
         for(int step=0;step<4&&now>=due;++step) {
             if(++frame>=count){if(!Next()){paused=true;return true;}break;}
-            image->SelectActiveFrame(&Gdiplus::FrameDimensionTime,frame);due+=delays[frame];
+            image->SelectActiveFrame(&Gdiplus::FrameDimensionTime,frame);colorDirty=true;due+=delays[frame];
         }
         if(due<now)due=now+delays[frame];
         return true;
@@ -85,7 +115,7 @@ public:
         {
             Gdiplus::Graphics graphics(dc);
             graphics.SetInterpolationMode(Gdiplus::InterpolationModeHighQualityBilinear);
-            graphics.DrawImage(image.get(),616,248,260,195);
+            graphics.DrawImage(AdjustedFrame(),616,248,260,195);
         }
         ui::Text(dc,paused?L"PRÉVIA PAUSADA":L"EM DEMONSTRAÇÃO",{616,460,876,488},ui::smallFont,ui::ink,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
         ui::Text(dc,L"Cenas aleatórias · sem som",{616,495,876,524},ui::smallFont,ui::muted,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
