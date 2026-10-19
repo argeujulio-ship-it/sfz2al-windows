@@ -16,6 +16,10 @@ for name in filter(None, tracked):
     if re.search(r"/(?:native|z80)_\d+\.cpp$", name):
         bad.append((name, "translated program"))
     data = subprocess.check_output(["git", "-C", str(root), "show", f":{name}"])
+    if p.suffix.lower() == ".ico":
+        if name != "src/windows/launcher.ico" or data[:4] != b"\x00\x00\x01\x00":
+            bad.append((name, "unapproved icon"))
+        continue
     if p.suffix.lower() == ".png":
         if name not in {"docs/previews/tema_fliperama.png", "docs/previews/tema_tv_tubo.png", "docs/previews/tema_gabinete_classico.png"}:
             bad.append((name, "unapproved image"))

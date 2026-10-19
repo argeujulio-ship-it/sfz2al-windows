@@ -54,6 +54,7 @@ nessa preparação não é apresentado como tradução nativa concluída.
 
 O resultado fica em dist/. Abra SFZ2AL.exe e selecione seu ZIP; não há caminho de
 ROM pessoal embutido. As configurações são guardadas junto ao executável.
+SFZ2AL.exe tem um ícone original com Z2 dourado para identificar o iniciador.
 Não publique work/ ou dist/: eles contêm código produzido a partir do jogo.
 Não há release binária neste repositório.
 
