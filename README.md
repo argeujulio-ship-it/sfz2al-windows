@@ -33,7 +33,7 @@ validação ampla de controles físicos, variantes, todos os finais e áudio.
 
 ## Pacote com executáveis
 
-Também foi preparado um ZIP Windows x64 experimental para a seção Releases,
+O ZIP Windows x64 experimental é disponibilizado na seção Releases,
 separado dos arquivos rastreados neste repositório. Ele contém SFZ2AL.exe,
 sfz2al-game.exe, sfz2alb-game.exe, SDL3.dll, configurações padrão e licenças.
 Não contém ROMs, chaves, mídia de gameplay nem configurações pessoais.
