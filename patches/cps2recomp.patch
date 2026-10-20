@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index fb3d138..8702b28 100644
+index fb3d138..c1bb7ab 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -42,6 +42,10 @@ set(MACHINE_SOURCES
@@ -7,7 +7,7 @@ index fb3d138..8702b28 100644
  # The game's own sources (features, routines replaced by hand-written C++); without any, nothing is added
  file(GLOB GAME_SOURCES CONFIGURE_DEPENDS "${GAME_DIR}/src/*.cpp")
 +option(SFZ2AL_LADDER_RESEARCH "Compile the local life-control research harness" OFF)
-+if (GAME STREQUAL "sfz2al" AND SFZ2AL_LADDER_RESEARCH)
++if ((GAME STREQUAL "sfz2al" OR GAME STREQUAL "sfz2alb") AND SFZ2AL_LADDER_RESEARCH)
 +    set_property(SOURCE "${GAME_DIR}/src/practice.cpp" APPEND PROPERTY COMPILE_DEFINITIONS SFZ2AL_ENABLE_LADDER_HARNESS)
 +endif ()
  # ... and those of the games it shares sources with (game.cfg's "sources": another game made from the same program,
@@ -282,7 +282,7 @@ index bdf5104..d74ae77 100644
      SDL_DestroyWindow(window);
      SDL_Quit();
 diff --git a/port/main.cpp b/port/main.cpp
-index 979113a..9ab740a 100644
+index 979113a..84bf026 100644
 --- a/port/main.cpp
 +++ b/port/main.cpp
 @@ -68,7 +68,7 @@ bool Movie::Save(const std::string &path) const {
@@ -294,7 +294,33 @@ index 979113a..9ab740a 100644
  
      bool ReadFile(const std::string &path, std::vector<uint8_t> &data) {
          FILE *f = fopen(path.c_str(), "rb");
-@@ -990,6 +990,8 @@ void Usage() {
+@@ -518,6 +518,7 @@ bool Port::SaveState(const std::string &path, std::string &error) {
+ }
+ 
+ bool Port::LoadState(const std::string &path, std::string &error) {
++    gallery.Reset(); // A loaded ending alone must never award a character.
+     std::vector<uint8_t> data;
+     if (!ReadFile(path, data)) {
+         error = "cannot read " + path;
+@@ -865,6 +866,17 @@ void Port::RunFrame() {
+     if (TheGame().frame) {
+         TheGame().frame(*machine);
+     }
++    if (!opt.galleryPath.empty()) {
++        GallerySample s;
++        s.mode=Ram16(0xFF8000);s.game=Ram16(0xFF8004);s.match=Ram16(0xFF8008);s.round=Ram16(0xFF800C);
++        s.playMode=Ram16(0xFF8138);s.players=Ram8(0xFF80A8);
++        for(int p=0;p<2;++p){s.character[p]=Ram8(0xFF8482+p*0x400);s.computer[p]=Ram8(0xFF84A5+p*0x400);}
++        s.training=FeatureOn("training_mode")||FeatureOn("infinite_time")||FeatureOn("refill_health");
++        s.test=machine->testSwitch||machine->serviceButton;
++        const int cleared=gallery.Observe(s);
++        if(cleared>=0&&!GalleryProgress::Save(TextPath(opt.galleryPath),cleared))
++            std::fprintf(stderr,"Could not save local gallery progress.\n");
++    }
+     frame++;
+     // (for finding things out: --poke ADDR=BYTE,... every frame; --dump-ram FRAME:file)
+     if (!opt.poke.empty()) {
+@@ -990,6 +1002,8 @@ void Usage() {
              "  --hash-picture         ... of the picture only (to compare runs whose timing is not the same)\n"
              "  --hash-game            ... without the Z80 and its own memory (to compare --sound driver and z80)\n"
  "  --renderer sdl|gpu     how the picture gets to the window: SDL's GPU API unless said (or not there)\n"
@@ -303,7 +329,15 @@ index 979113a..9ab740a 100644
              "  --present-test F.png   (headless) the run's last picture drawn by the GPU path, no window, as the\n"
              "                         Display page has it (896x672 at 4:3)\n"
              "  --present-size WxH     ... in a window this big\n"
-@@ -1067,6 +1069,18 @@ bool ParseArgs(int argc, char **argv, port::Options &o) {
+@@ -1005,6 +1019,7 @@ void Usage() {
+             "  --features A,B         switch optional features on (--list-features lists them; -NAME: off; given\n"
+             "                         more than once, all of them in order)\n"
+             "  --settings FILE        settings.ini with the player's feature choices\n"
++            "  --gallery-dir DIR      SFZ2AL: save local single-player arcade-clear markers here\n"
+             "  --soundtrack DIR       the custom soundtrack's folder (its songs.txt names the files)\n"
+             "  --soundtrack-dump FILE (with --headless) write what the custom soundtrack plays to a WAV file\n"
+             "  --poke A=B,...         write byte B at RAM address A after every frame (hex)\n"
+@@ -1067,6 +1082,18 @@ bool ParseArgs(int argc, char **argv, port::Options &o) {
              o.hashPicture = true;
          } else if (a == "--renderer") {
              o.renderer = next();
@@ -322,11 +356,36 @@ index 979113a..9ab740a 100644
          } else if (a == "--present-test") {
              o.presentTest = next();
          } else if (a == "--present-size") {
+@@ -1112,6 +1139,8 @@ bool ParseArgs(int argc, char **argv, port::Options &o) {
+             exit(0);
+         } else if (a == "--settings") {
+             o.settingsPath = next();
++        } else if (a == "--gallery-dir") {
++            o.galleryPath = next();
+         } else if (a == "--soundtrack") {
+             o.soundtrack = next();
+         } else if (a == "--soundtrack-dump") {
 diff --git a/port/port.h b/port/port.h
-index 69f2a63..2c0be1c 100644
+index 69f2a63..12fd589 100644
 --- a/port/port.h
 +++ b/port/port.h
-@@ -56,6 +56,8 @@ struct Options {
+@@ -8,6 +8,7 @@
+ #include "menu.h"
+ #include "present.h"
+ #include "soundtrack.h"
++#include "gallery_progress.h"
+ 
+ #include <cstdint>
+ #include <cstdio>
+@@ -31,6 +32,7 @@ struct Options {
+     std::string soundtrack;    // --soundtrack DIR: the custom soundtrack's folder (soundtrack.h; default: beside settings.ini)
+     std::string soundtrackDump; // --soundtrack-dump FILE: WAV file of what the custom soundtrack plays (headless)
+     std::string settingsPath;  // settings.ini with the player's feature choices
++    std::string galleryPath;   // local gallery progress, explicitly enabled by the launcher
+     std::string features;      // --features A,B,-C
+     std::string menuTest;      // --menu FRAME:KEYS[:shot.png]
+     std::string keys;          // --keys TICK:KEY,TICK:KEY...
+@@ -56,6 +58,8 @@ struct Options {
      bool hashGame = false;     // --hash-game: the state hash without the Z80 and its own memory (to compare --sound driver and z80)
      int cpuSpeed = 1;         // --cpu-speed
      std::string renderer;     // --renderer sdl|gpu (gpu unless said)
@@ -335,6 +394,14 @@ index 69f2a63..2c0be1c 100644
      std::string presentTest;  // --present-test FILE.png: the last picture drawn by the GPU path with no window
      int presentWidth = 0, presentHeight = 0; // --present-size WxH: the window it is drawn in
      int scale = 0;            // --scale: the window this many times the board's lines (0: the Display page's)
+@@ -69,6 +73,7 @@ struct Movie {
+ };
+ 
+ struct Port {
++    GalleryProgress gallery;
+     Options opt;
+     cps2recomp::RomSet roms;
+     std::unique_ptr<cps2recomp::Machine> machine;
 diff --git a/port/present.cpp b/port/present.cpp
 index 4dcbca8..8b25212 100644
 --- a/port/present.cpp
@@ -631,6 +698,63 @@ new file mode 100644
 +            buffer[i]=(p&0xff000000u)|table[p&255]|(uint32_t(table[(p>>8)&255])<<8)|(uint32_t(table[(p>>16)&255])<<16);
 +        }
 +        return buffer.data();
++    }
++};
++}
+
+diff --git a/port/gallery_progress.h b/port/gallery_progress.h
+new file mode 100644
+--- /dev/null
++++ b/port/gallery_progress.h
+@@ -0,0 +1,51 @@
++// SPDX-License-Identifier: GPL-3.0-only
++// SFZ2AL/SFZ2ALB arcade-clear observer. Does not change emulated machine state.
++#pragma once
++#include <cstdint>
++#include <filesystem>
++#include <fstream>
++
++namespace port {
++struct GallerySample {
++    uint16_t mode=0,game=0,match=0,round=0,playMode=0;
++    uint8_t players=0,character[2]{},computer[2]{};
++    bool training=false,test=false;
++};
++class GalleryProgress {
++    int fighter=-1,side=-1,fightFrames=0,endingFrames=0;
++    bool awarded=false,excluded=false;
++public:
++    void Reset(){fighter=side=-1;fightFrames=endingFrames=0;awarded=excluded=false;}
++    // A two-player interruption or training invalidates this segment. A subsequent
++    // single-player fight can start a fresh segment; attract mode cannot arm it.
++    int Observe(const GallerySample &s){
++        if(s.mode!=2||s.game==2){Reset();return -1;}
++        if(s.training||s.test){Reset();excluded=true;return -1;}
++        if(excluded)return -1;
++        if(s.players==3){Reset();return -1;}
++        if(s.mode==2&&s.game==4&&s.match==4&&s.round==2&&s.playMode==0){
++            int p=s.players==1?0:s.players==2?1:-1;
++            if(p<0||s.computer[p]||!s.computer[1-p]||s.character[p]>=18){Reset();return -1;}
++            if(p!=side||fighter!=s.character[p]){Reset();side=p;fighter=s.character[p];}
++            excluded=false;++fightFrames;endingFrames=0;
++        }else if(s.mode==2&&s.game==10&&!excluded&&fightFrames>=1&&fighter>=0&&
++                 s.players==(side==0?1:2)&&s.character[side]==fighter){
++            if(++endingFrames>=2&&!awarded){awarded=true;return fighter;}
++        }else endingFrames=0;
++        return -1;
++    }
++    static bool Save(const std::filesystem::path &folder,int character){
++        if(character<0||character>=18||folder.empty())return false;
++        std::error_code error;std::filesystem::create_directories(folder/L"progress",error);
++        if(error)return false;
++        const auto file=folder/L"progress"/(std::to_wstring(character)+L".clear");
++        // One independent marker per character: no shared progress file to truncate.
++        if(std::filesystem::is_regular_file(file,error)){
++            std::ifstream prior(file);std::string marker;std::getline(prior,marker);
++            if(marker=="SFZ2AL-ARCADE-CLEAR-1")return true;
++        }
++        std::ofstream out(file,std::ios::binary);out<<"SFZ2AL-ARCADE-CLEAR-1\n";
++        out.flush();return out.good();
 +    }
 +};
 +}

@@ -1,4 +1,4 @@
-# Places the game's code was seen to reach in ways the translator cannot follow
+# Observed computed jump targets including the Nash ending
 0038
 007F
 0084
@@ -76,6 +76,7 @@
 02C4
 02E6
 02F7
+0434
 04D4
 04EA
 04EE
@@ -87,6 +88,7 @@
 0839
 08C1
 08EE
+08FB
 0921
 09F4
 09FC
@@ -415,6 +417,7 @@
 1149
 116E
 117B
+1295
 12D4
 12D7
 12DA

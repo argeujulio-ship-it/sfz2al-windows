@@ -41,7 +41,7 @@ validação ampla de controles físicos, variantes, todos os finais e áudio.
 
 ## Pacote com executáveis
 
-O ZIP Windows x64 experimental é disponibilizado na seção Releases,
+Também foi preparado um ZIP Windows x64 experimental para a seção Releases,
 separado dos arquivos rastreados neste repositório. Ele contém SFZ2AL.exe,
 sfz2al-game.exe, sfz2alb-game.exe, SDL3.dll, configurações padrão e licenças.
 Não contém ROMs, chaves, mídia de gameplay nem configurações pessoais.
@@ -212,3 +212,12 @@ A defesa baixa segura baixo e trás; golpes que exigem defesa em pé e agarramen
 podem acertar. A reposição de vida em repouso não impede nocaute. Estados antigos
 da versão 7 continuam legíveis, mas não contêm as novas gravações. Estados desta
 versão não devem ser carregados em executáveis antigos.
+
+## Galeria desbloqueável — v0.3.0
+
+Abra **Galeria** para preparar os retratos originais da sua ROM. Ao concluir o Arcade
+com cada um dos 18 personagens principais, sua imagem e breve história são liberadas.
+Os golpes principais ficam disponíveis desde o início. Completar o elenco libera um
+painel coletivo, salvo localmente. Preserve `user/gallery` ao atualizar.
+As imagens e o progresso não são distribuídos. Veja [docs/GALLERY.md](docs/GALLERY.md)
+para as regras, comandos, validação e limites.

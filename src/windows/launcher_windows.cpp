@@ -88,6 +88,7 @@ static void Play(HWND window,bool practice) {
         L"--brightness",std::to_wstring(brightness),L"--contrast",std::to_wstring(contrast),
         L"--renderer",L"sdl",L"--scale",L"3",L"--settings",settings.wstring(),L"--eeprom",(app/(selectedVersion==1?L"user/board-brasil.eeprom":L"user/board.eeprom")).wstring(),
         L"--features",practice?L"training_mode,input_history,infinite_time,refill_health":L"-training_mode,-infinite_time,-refill_health"};
+    if(!practice){args.push_back(L"--gallery-dir");args.push_back((app/L"user/gallery").wstring());}
     std::wstring cmd;for(const auto &s:args) {if(!cmd.empty())cmd+=L' ';cmd+=Quote(s);}
     STARTUPINFOW si{sizeof(si)};PROCESS_INFORMATION pi{};
     if(!CreateProcessW(game.c_str(),cmd.data(),nullptr,nullptr,FALSE,0,nullptr,app.c_str(),&si,&pi)) {
@@ -104,6 +105,7 @@ static HWND Control(HWND w,const wchar_t *type,const wchar_t *text,DWORD style,i
     SendMessageW(c,WM_SETFONT,(WPARAM)font,TRUE);ui::Skin(c);return c;
 }
 #include "controls_window.hpp"
+#include "gallery_window.hpp"
 static void UpdateImageControls(bool save) {
     preview.SetColorAdjust(brightness,contrast);
     RECT imagePanel{602,190,890,594};InvalidateRect(GetParent(brightnessSlider),&imagePanel,FALSE);
@@ -150,6 +152,7 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
         SendMessageW(contrastSlider,TBM_SETRANGE,TRUE,MAKELPARAM(50,150));
         contrastLabel=Control(w,L"STATIC",L"",0,494,360,80,26);
         Control(w,L"BUTTON",L"Restaurar imagem",WS_TABSTOP,200,400,210,34,6);
+        Control(w,L"BUTTON",L"Galeria",WS_TABSTOP,426,400,148,34,13);
         Control(w,L"BUTTON",L"JOGAR",WS_TABSTOP|BS_DEFPUSHBUTTON,24,466,174,52,2);
         Control(w,L"BUTTON",L"Treino",WS_TABSTOP,212,466,174,52,3);
         Control(w,L"BUTTON",L"Controles",WS_TABSTOP,400,466,174,52,4);
@@ -196,6 +199,7 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
         case 2:Play(w,false);break;
         case 3:Play(w,true);break;
         case 4:ui::Sound(menu_audio::Cue::Confirm);OpenControls(w);break;
+        case 13:ui::Sound(menu_audio::Cue::Confirm);gallery::Open(w);break;
         case 5:if(HIWORD(wp)==CBN_SELCHANGE) {
             selectedTheme=int(SendMessageW(themeBox,CB_GETCURSEL,0,0));
             ui::Sound(menu_audio::Cue::Confirm);
@@ -211,7 +215,7 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
             ui::Sound(menu_audio::Cue::Confirm);InvalidateRect(w,nullptr,FALSE);break;
         }return 0;
     }
-    if(m==WM_DESTROY) {KillTimer(w,2);preview.Close();DeleteObject(heroCache);DeleteObject(font);ui::Close();PostQuitMessage(0);return 0;}
+    if(m==WM_DESTROY) {gallery::Close();KillTimer(w,2);preview.Close();DeleteObject(heroCache);DeleteObject(font);ui::Close();PostQuitMessage(0);return 0;}
     return DefWindowProcW(w,m,wp,lp);
 }
 int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
@@ -232,6 +236,7 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     RECT size{0,0,920,710};AdjustWindowRect(&size,WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,FALSE);
     HWND w=CreateWindowW(wc.lpszClassName,L"SFZ2AL — Iniciar",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX|WS_CLIPCHILDREN,CW_USEDEFAULT,CW_USEDEFAULT,size.right-size.left,size.bottom-size.top,nullptr,nullptr,instance,nullptr);
     ui::Caption(w);ShowWindow(w,show);if(std::wstring(commandLine)==L"--controls")OpenControls(w);
-    MSG msg;while(GetMessageW(&msg,nullptr,0,0)>0){if(CaptureKey(msg))continue;if(!IsDialogMessageW(controlsWindow?controlsWindow:w,&msg)){TranslateMessage(&msg);DispatchMessageW(&msg);}}
+    if(std::wstring(commandLine)==L"--gallery")gallery::Open(w);
+    MSG msg;while(GetMessageW(&msg,nullptr,0,0)>0){if(CaptureKey(msg))continue;if(!IsDialogMessageW(gallery::window?gallery::window:controlsWindow?controlsWindow:w,&msg)){TranslateMessage(&msg);DispatchMessageW(&msg);}}
     return 0;
 }
