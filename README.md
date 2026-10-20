@@ -4,6 +4,14 @@ Adaptação para Windows de Street Fighter Zero 2 Alpha (Asia 960826 e Brazil 96
 [CPS-2 Recomp](https://github.com/tmcleroy/cps2recomp). Este repositório contém
 código-fonte e ajustes; o usuário fornece seu próprio conjunto sfz2al.zip ou sfz2alb.zip completo.
 
+## Correção v0.1.1 — saída do menu de serviço
+
+F2 agora envia um toque curto, sem manter a chave TEST ligada nem reagir à
+repetição automática da tecla. Isso evita retornar ao TEST MENU após escolher
+EXIT. Confirme EXIT com o soco fraco do jogador 1 (A no padrão).
+Em CONFIGURATION, use SAVE & EXIT para guardar as mudanças.
+Não é mais necessário pressionar F2 novamente para desligar a chave.
+
 ## Recursos
 
 - Iniciador em português, seletor Brasil / Ásia, seleção do ZIP e modos Jogar/Treino.

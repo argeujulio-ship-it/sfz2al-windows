@@ -57,3 +57,10 @@ Entrega organizada: o iniciador resolve caminhos relativos ao seu executável e
 procura as duas ROMs em user/roms quando ainda não há caminho salvo. A pasta de
 fontes fica separada da instalação local, sem copiar backups ou caches de build.
 Os testes de interface passaram novamente após esse ajuste de caminhos.
+
+Correção de serviço, 20/10/2026: o problema foi reproduzido com TEST mantido
+ligado, retornando ao menu após EXIT. O pulso de seis quadros permite retornar
+à inicialização normal em Brasil e Ásia. A entrada via F2 foi observada na
+interface recompilada; a saída foi exercitada com replay de navegação em ambas
+as edições, usando EEPROMs temporárias. O patch do frontend foi conferido
+contra a revisão fixada da base. As ROMs e EEPROMs do usuário não foram alteradas.
