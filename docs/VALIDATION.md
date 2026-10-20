@@ -64,3 +64,14 @@ ligado, retornando ao menu após EXIT. O pulso de seis quadros permite retornar
 interface recompilada; a saída foi exercitada com replay de navegação em ambas
 as edições, usando EEPROMs temporárias. O patch do frontend foi conferido
 contra a revisão fixada da base. As ROMs e EEPROMs do usuário não foram alteradas.
+
+
+Treino aprimorado, 20/10/2026 (v0.2.0): nas duas edições, validados adversário
+parado, defesa baixa contra ataques agachados, controle manual, três slots com
+120 quadros gravados/reproduzidos exatamente, restauração exata do ponto salvo e
+salvamento/carregamento durante reprodução. Validados limite de 1.200 quadros e
+leitura de estados antigos versão 7. Cada edição também executou 6.500 quadros
+no modo normal com hashes idênticos à v0.1.1. Zero fallback nativo nos percursos
+da suíte final. Os quatro testes da interface passaram. A interface do treino
+foi observada na edição Brasil. Estes testes não certificam todos os personagens,
+trocas de lado, situações de defesa, finais ou controles físicos.

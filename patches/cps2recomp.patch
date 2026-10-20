@@ -122,7 +122,7 @@ index b817a24..f6c825d 100644
      static const struct Table {
          recomp::BindAction actions[kBoundActionCount];
 diff --git a/port/frontend_sdl.cpp b/port/frontend_sdl.cpp
-index bdf5104..5569e6c 100644
+index bdf5104..d74ae77 100644
 --- a/port/frontend_sdl.cpp
 +++ b/port/frontend_sdl.cpp
 @@ -7,6 +7,7 @@
@@ -217,9 +217,12 @@ index bdf5104..5569e6c 100644
                  } else if (ev.key.scancode == SDL_SCANCODE_F5 || ev.key.scancode == SDL_SCANCODE_F9) {
                      // F5 keeps the game in the slot, F9 goes back to it; F6 / F7: the slot before, the next
                      if (!port.menu.IsOpen()) {
-@@ -210,8 +222,8 @@ int RunWindowed(Port &port) {
+@@ -208,10 +220,10 @@ int RunWindowed(Port &port) {
+                     port.Key(ev.key.scancode == SDL_SCANCODE_MINUS ? '-' : '='); // slower, faster
+                 } else if (!port.menu.IsOpen() && ev.key.scancode == SDL_SCANCODE_BACKSPACE && !ev.key.repeat) {
                      port.Key('k', kKeyRestart);
-                 } else if (!port.menu.IsOpen() && ev.key.scancode == SDL_SCANCODE_BACKSLASH && !ev.key.repeat) {
+-                } else if (!port.menu.IsOpen() && ev.key.scancode == SDL_SCANCODE_BACKSLASH && !ev.key.repeat) {
++                } else if (!port.menu.IsOpen() && (ev.key.scancode == SDL_SCANCODE_BACKSLASH || ev.key.scancode == SDL_SCANCODE_NONUSBACKSLASH) && !ev.key.repeat) {
                      port.Key('k', kKeyExtra);
 -                } else if (ev.key.scancode == SDL_SCANCODE_F2) {
 -                    port.test = !port.test; // the operator's test switch
@@ -279,9 +282,18 @@ index bdf5104..5569e6c 100644
      SDL_DestroyWindow(window);
      SDL_Quit();
 diff --git a/port/main.cpp b/port/main.cpp
-index 979113a..9599d3f 100644
+index 979113a..9ab740a 100644
 --- a/port/main.cpp
 +++ b/port/main.cpp
+@@ -68,7 +68,7 @@ bool Movie::Save(const std::string &path) const {
+ }
+ 
+ namespace {
+-    constexpr uint32_t kStateVersion = 7; // (5: the 68000's wait kept; 6: the custom soundtrack's place; 7: the board timing's palette copy)
++    constexpr uint32_t kStateVersion = 8; // 8: SFZ2AL training recordings and checkpoint; old states remain readable.
+ 
+     bool ReadFile(const std::string &path, std::vector<uint8_t> &data) {
+         FILE *f = fopen(path.c_str(), "rb");
 @@ -990,6 +990,8 @@ void Usage() {
              "  --hash-picture         ... of the picture only (to compare runs whose timing is not the same)\n"
              "  --hash-game            ... without the Z80 and its own memory (to compare --sound driver and z80)\n"

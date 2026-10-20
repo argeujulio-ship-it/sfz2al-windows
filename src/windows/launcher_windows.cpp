@@ -87,7 +87,7 @@ static void Play(HWND window,bool practice) {
         L"--theme",themeCodes[selectedTheme],
         L"--brightness",std::to_wstring(brightness),L"--contrast",std::to_wstring(contrast),
         L"--renderer",L"sdl",L"--scale",L"3",L"--settings",settings.wstring(),L"--eeprom",(app/(selectedVersion==1?L"user/board-brasil.eeprom":L"user/board.eeprom")).wstring(),
-        L"--features",practice?L"infinite_time,refill_health":L"-infinite_time,-refill_health"};
+        L"--features",practice?L"training_mode,input_history,infinite_time,refill_health":L"-training_mode,-infinite_time,-refill_health"};
     std::wstring cmd;for(const auto &s:args) {if(!cmd.empty())cmd+=L' ';cmd+=Quote(s);}
     STARTUPINFOW si{sizeof(si)};PROCESS_INFORMATION pi{};
     if(!CreateProcessW(game.c_str(),cmd.data(),nullptr,nullptr,FALSE,0,nullptr,app.c_str(),&si,&pi)) {
@@ -153,7 +153,7 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
         Control(w,L"BUTTON",L"JOGAR",WS_TABSTOP|BS_DEFPUSHBUTTON,24,466,174,52,2);
         Control(w,L"BUTTON",L"Treino",WS_TABSTOP,212,466,174,52,3);
         Control(w,L"BUTTON",L"Controles",WS_TABSTOP,400,466,174,52,4);
-        Control(w,L"STATIC",L"F8: temas (se livre). F11: tela cheia. Esc: opções.\r\nBrilho e contraste também mudam no jogo aberto.\r\nTreino: tempo infinito e reposição de vida em repouso.",0,24,530,550,72);
+        Control(w,L"STATIC",L"F8: temas (se livre). F11: tela cheia. Esc: opções.\r\nTreino: Backspace reinicia. \\ grava/repete o adversário.\r\nEsc > Treino: histórico, defesa e 3 slots de gravação.",0,24,530,550,72);
         soundToggle=Control(w,L"BUTTON",L"Sons do menu",WS_TABSTOP|BS_AUTOCHECKBOX,24,623,190,30,7);
         SendMessageW(soundToggle,BM_SETCHECK,ui::soundEnabled?BST_CHECKED:BST_UNCHECKED,0);
         Control(w,L"STATIC",L"Volume",0,230,626,70,26);

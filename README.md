@@ -189,3 +189,26 @@ Os resultados do ensaio de compilação e seus limites estão em
 
 GPL-3.0-only para os fontes e ajustes deste projeto. Veja [LICENSE](LICENSE),
 [NOTICE.md](NOTICE.md) e [UPSTREAM_NOTICES.md](UPSTREAM_NOTICES.md).
+
+
+## Treino aprimorado — v0.2.0 experimental
+
+Clique em **Treino**. O app prepara dois jogadores: com os controles do jogador 1,
+escolha seu personagem, solte o botão e escolha o adversário.
+
+- **Esc > Treino > Adversario**: parado, agachado, defesa baixa, controle manual,
+  gravar/repetir e três slots de gravação.
+- **Barra invertida (\)**: inicia a gravação; outro toque encerra e reproduz.
+  Durante a gravação, os controles do J1 comandam o J2. Limite de 1.200 quadros
+  (cerca de 20 segundos); ao atingir o limite, começa a reprodução.
+- **Backspace**: restaura o início da luta. Para outro ponto, use
+  **Esc > Treino > Salvar ponto de reinicio**. As gravações são preservadas.
+- **F5/F9**: salvar/carregar estado, incluindo as gravações e o ponto de reinício.
+  As gravações não são salvas automaticamente ao fechar o jogo.
+- Histórico de comandos dos dois jogadores; direções numéricas relativas ao lado
+  (6 = frente, 4 = trás, 2 = baixo) e botões LP/MP/HP/LK/MK/HK.
+
+A defesa baixa segura baixo e trás; golpes que exigem defesa em pé e agarramentos
+podem acertar. A reposição de vida em repouso não impede nocaute. Estados antigos
+da versão 7 continuam legíveis, mas não contêm as novas gravações. Estados desta
+versão não devem ser carregados em executáveis antigos.
