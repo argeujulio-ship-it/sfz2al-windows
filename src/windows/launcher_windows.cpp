@@ -89,6 +89,9 @@ static void Play(HWND window,bool practice) {
         L"--renderer",L"sdl",L"--scale",L"3",L"--settings",settings.wstring(),L"--eeprom",(app/(selectedVersion==1?L"user/board-brasil.eeprom":L"user/board.eeprom")).wstring(),
         L"--features",practice?L"training_mode,input_history,infinite_time,refill_health":L"-training_mode,-infinite_time,-refill_health"};
     if(!practice){args.push_back(L"--gallery-dir");args.push_back((app/L"user/gallery").wstring());}
+    if(!practice&&GetPrivateProfileIntW(L"retroachievements",L"enabled",0,(app/L"launcher.ini").c_str())&&fs::is_regular_file(app/L"user/retroachievements/account.bin")){
+        args.push_back(L"--ra-dir");args.push_back((app/L"user/retroachievements").wstring());
+    }
     std::wstring cmd;for(const auto &s:args) {if(!cmd.empty())cmd+=L' ';cmd+=Quote(s);}
     STARTUPINFOW si{sizeof(si)};PROCESS_INFORMATION pi{};
     if(!CreateProcessW(game.c_str(),cmd.data(),nullptr,nullptr,FALSE,0,nullptr,app.c_str(),&si,&pi)) {
@@ -106,6 +109,7 @@ static HWND Control(HWND w,const wchar_t *type,const wchar_t *text,DWORD style,i
 }
 #include "controls_window.hpp"
 #include "gallery_window.hpp"
+#include "achievements_window.hpp"
 static void UpdateImageControls(bool save) {
     preview.SetColorAdjust(brightness,contrast);
     RECT imagePanel{602,190,890,594};InvalidateRect(GetParent(brightnessSlider),&imagePanel,FALSE);
@@ -163,6 +167,7 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
         soundSlider=Control(w,TRACKBAR_CLASSW,L"",WS_TABSTOP|TBS_HORZ,310,618,220,36,12);
         SendMessageW(soundSlider,TBM_SETRANGE,TRUE,MAKELPARAM(0,100));SendMessageW(soundSlider,TBM_SETPOS,TRUE,ui::volume);
         soundLabel=Control(w,L"STATIC",(std::to_wstring(ui::volume)+L" %").c_str(),0,552,626,80,26);
+        Control(w,L"BUTTON",L"Conquistas online",WS_TABSTOP,650,623,222,34,14);
         previewToggle=Control(w,L"BUTTON",L"",WS_TABSTOP,620,552,252,34,8);
         StartPreview();
         SetTimer(w,2,20,nullptr);
@@ -200,6 +205,7 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
         case 3:Play(w,true);break;
         case 4:ui::Sound(menu_audio::Cue::Confirm);OpenControls(w);break;
         case 13:ui::Sound(menu_audio::Cue::Confirm);gallery::Open(w);break;
+        case 14:ui::Sound(menu_audio::Cue::Confirm);online::Open(w);break;
         case 5:if(HIWORD(wp)==CBN_SELCHANGE) {
             selectedTheme=int(SendMessageW(themeBox,CB_GETCURSEL,0,0));
             ui::Sound(menu_audio::Cue::Confirm);
@@ -215,7 +221,7 @@ static LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp) {
             ui::Sound(menu_audio::Cue::Confirm);InvalidateRect(w,nullptr,FALSE);break;
         }return 0;
     }
-    if(m==WM_DESTROY) {gallery::Close();KillTimer(w,2);preview.Close();DeleteObject(heroCache);DeleteObject(font);ui::Close();PostQuitMessage(0);return 0;}
+    if(m==WM_DESTROY) {online::Close();gallery::Close();KillTimer(w,2);preview.Close();DeleteObject(heroCache);DeleteObject(font);ui::Close();PostQuitMessage(0);return 0;}
     return DefWindowProcW(w,m,wp,lp);
 }
 int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
@@ -237,6 +243,6 @@ int WINAPI wWinMain(HINSTANCE instance,HINSTANCE,LPWSTR commandLine,int show) {
     HWND w=CreateWindowW(wc.lpszClassName,L"SFZ2AL — Iniciar",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX|WS_CLIPCHILDREN,CW_USEDEFAULT,CW_USEDEFAULT,size.right-size.left,size.bottom-size.top,nullptr,nullptr,instance,nullptr);
     ui::Caption(w);ShowWindow(w,show);if(std::wstring(commandLine)==L"--controls")OpenControls(w);
     if(std::wstring(commandLine)==L"--gallery")gallery::Open(w);
-    MSG msg;while(GetMessageW(&msg,nullptr,0,0)>0){if(CaptureKey(msg))continue;if(!IsDialogMessageW(gallery::window?gallery::window:controlsWindow?controlsWindow:w,&msg)){TranslateMessage(&msg);DispatchMessageW(&msg);}}
+    MSG msg;while(GetMessageW(&msg,nullptr,0,0)>0){if(CaptureKey(msg))continue;if(!IsDialogMessageW(online::window?online::window:gallery::window?gallery::window:controlsWindow?controlsWindow:w,&msg)){TranslateMessage(&msg);DispatchMessageW(&msg);}}
     return 0;
 }

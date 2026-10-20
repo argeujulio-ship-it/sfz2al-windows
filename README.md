@@ -54,7 +54,7 @@ quem quiser gerar sua própria versão a partir dos fontes e da ROM local.
 Os executáveis do jogo incluem a tradução nativa compilada do programa 68000/Z80;
 não são uma reimplementação independente. Excluir os ZIPs de ROM da release não
 exclui esse código traduzido dos executáveis. A preparação do pacote não equivale
-a uma avaliação jurídica de sua distribuição. Ainda não houve publicação online.
+a uma avaliação jurídica de sua distribuição. Os pacotes experimentais estão na seção Releases deste repositório.
 
 Pode ser necessário instalar o [Microsoft Visual C++ v14 Redistributable x64](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist).
 Não foi feito teste em uma instalação limpa de outro computador.
@@ -178,7 +178,7 @@ Depois de bootstrap, com o SDK SDL disponível:
     Copy-Item "D:/deps/SDL3-3.4.16/lib/x64/SDL3.dll" build/
     ctest --test-dir build --output-on-failure
 
-Os quatro testes verificam animação da prévia, síntese dos sons, configuração e salvamento dos dois jogadores, ações
+Os seis testes verificam animação da prévia, síntese dos sons, configuração e salvamento dos dois jogadores, ações
 simultâneas, recuperação de falhas, molduras e transformação de cores. Eles
 não substituem validação de uma partida completa.
 
@@ -221,3 +221,12 @@ Os golpes principais ficam disponíveis desde o início. Completar o elenco libe
 painel coletivo, salvo localmente. Preserve `user/gallery` ao atualizar.
 As imagens e o progresso não são distribuídos. Veja [docs/GALLERY.md](docs/GALLERY.md)
 para as regras, comandos, validação e limites.
+
+## Conquistas online — v0.4.0 experimental
+
+Abra **Conquistas online**, entre na sua conta pelo app e ative o envio Softcore.
+Depois feche o jogo, se já estiver aberto, e inicie por **JOGAR**. A opção começa
+desligada; treino não envia conquistas. A senha não é salva e o token é protegido
+pelo Windows. Não há Hardcore nem placares. A galeria permanece independente.
+Testes offline e consultas públicas passaram; login e desbloqueio real ainda
+precisam de validação. Veja [instruções, privacidade e limites](docs/RETROACHIEVEMENTS.md).

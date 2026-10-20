@@ -75,3 +75,15 @@ no modo normal com hashes idênticos à v0.1.1. Zero fallback nativo nos percurs
 da suíte final. Os quatro testes da interface passaram. A interface do treino
 foi observada na edição Brasil. Estes testes não certificam todos os personagens,
 trocas de lado, situações de defesa, finais ou controles físicos.
+
+RetroAchievements, 20/10/2026 (v0.4.0 experimental): seis testes CTest passaram.
+Cliente oficial com transporte simulado: login, identificação, conquista sintética
+Softcore, consulta sem envio, suspensão, DPAPI e preservação do avaliador nos saves.
+HTTPS público real: ambas as revisões reconhecidas como jogo 11832 e notas de
+memória consultadas. Nenhuma autenticação ou conquista real foi enviada.
+Em cada edição, 6.500 quadros mantiveram os hashes da v0.3.0; saves formato 8
+e gravação/restauração exata no formato 9 passaram. Há fallback em destinos
+dos percursos amostrados; isso não certifica tradução completa. A interface
+desconectada apresenta os campos de conta e a ativação desabilitada por padrão.
+As 87 regras oficiais e a primeira conquista autenticada permanecem pendentes.
+Detalhes em RETROACHIEVEMENTS.md.

@@ -1,0 +1,3 @@
+https://github.com/RetroAchievements/rcheevos
+Commit: dfdc64ea035c34aa168cf13bbda72b71ca4eba1e
+Unmodified include/ and src/; project CMakeLists.txt added locally.

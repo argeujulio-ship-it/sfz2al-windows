@@ -128,3 +128,13 @@ characters of the version text it knows the program by.
 Code added later from another project must have a license compatible with the GPL-3.0 and be listed
 here, with its notice kept in the file. `tools/audit.sh` fails if a file marked as another
 project's is not one of those listed above.
+
+## Optional RetroAchievements integration (Windows app v0.4.0)
+
+`third_party/rcheevos/include` and `src` are from RetroAchievements/rcheevos,
+commit dfdc64ea035c34aa168cf13bbda72b71ca4eba1e, under MIT; see its LICENSE.
+The MD5 implementation is by L. Peter Deutsch / Aladdin Enterprises under its
+separate permissive notice, preserved in src/util/md5.h and MD5-NOTICE.txt.
+The local CMakeLists.txt wrapper and Windows host are project additions.
+Binary packages carry both rcheevos-MIT.txt and rcheevos-md5.txt in licenses/.
+This project does not claim RetroAchievements endorsement or Hardcore approval.

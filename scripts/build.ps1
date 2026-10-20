@@ -38,7 +38,7 @@ try { Run $Python @('tools/gamecfg.py','--header',(Join-Path $gen 'game_info.h')
 finally { Pop-Location }
 $native = Join-Path $root "work/game-build-$Game"
 function Configure-Game {
-    Run cmake @('-S',$repo,'-B',$native,'-G','Ninja','-DCMAKE_BUILD_TYPE=Release','-DCMAKE_OBJECT_PATH_MAX=240',"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$native/bin","-DGAME=$Game","-DGAME_DIR=$repo/games/$Game","-DWORK_DIR=$generated","-DSDL3_DIR=$sdlCmake","-DZLIB_LIBRARY=$zlib","-DZLIB_INCLUDE_DIR=$zinclude",'-DSFZ2AL_LADDER_RESEARCH=OFF','-DCMAKE_CXX_FLAGS=/utf-8')
+    Run cmake @('-S',$repo,'-B',$native,'-G','Ninja','-DCMAKE_BUILD_TYPE=Release','-DCMAKE_OBJECT_PATH_MAX=240',"-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$native/bin","-DGAME=$Game","-DGAME_DIR=$repo/games/$Game","-DWORK_DIR=$generated","-DSDL3_DIR=$sdlCmake","-DZLIB_LIBRARY=$zlib","-DZLIB_INCLUDE_DIR=$zinclude","-DSFZ2AL_RA_DIR=$root/src/shared","-DSFZ2AL_RCHEEVOS_DIR=$root/third_party/rcheevos",'-DSFZ2AL_LADDER_RESEARCH=OFF','-DCMAKE_CXX_FLAGS=/utf-8')
 }
 Configure-Game
 Run cmake @('--build',$native,'--target',$Game,'--parallel','4')
@@ -66,3 +66,6 @@ Copy-Item -LiteralPath (Join-Path $SdlDir 'LICENSE.txt') -Destination (Join-Path
 Copy-Item -LiteralPath (Join-Path $ZlibSource 'LICENSE') -Destination (Join-Path $dist 'licenses/zlib.txt')
 Write-Host "Local build complete: $dist. Open SFZ2AL.exe and choose your own ROM ZIP."
 Write-Host 'Keep dist/ and work/ private: they contain locally generated game code.'
+
+Copy-Item -LiteralPath (Join-Path $root 'third_party/rcheevos/LICENSE') -Destination (Join-Path $dist 'licenses/rcheevos-MIT.txt')
+Copy-Item -LiteralPath (Join-Path $root 'third_party/rcheevos/MD5-NOTICE.txt') -Destination (Join-Path $dist 'licenses/rcheevos-md5.txt')
