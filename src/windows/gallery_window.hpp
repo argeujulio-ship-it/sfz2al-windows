@@ -58,7 +58,14 @@ inline void Refresh(){
     else text+=L"Conclua o Arcade com este personagem para liberar sua imagem e história.\r\n\r\n";
     text+=L"GOLPES PRINCIPAIS\r\n\r\n";text+=f.moves;
     text+=L"\r\n\r\nDireções com o personagem olhando para a direita. Inverta esquerda/direita ao trocar de lado.\r\n\r\nP = soco; K = chute.\r\nL / M / H = fraco / médio / forte.\r\nPPP / KKK = três botões juntos.\r\n[ ] = segure para carregar.\r\n360° / 720° = uma / duas voltas.\r\nSupers exigem barra; PP/KK e PPP/KKK selecionam níveis maiores quando disponíveis.\r\n\r\nReferência da forma principal; não é a lista completa de golpes e variantes.";
-    if(!reward)SetWindowTextW(details,text.c_str());
+    if(!reward){
+        // The progress timer also calls Refresh. Replacing identical edit text
+        // resets its scroll position, so leave the reader's view untouched.
+        int length=GetWindowTextLengthW(details);
+        std::wstring current(size_t(length)+1,L'\0');
+        GetWindowTextW(details,current.data(),length+1);current.resize(length);
+        if(current!=text)SetWindowTextW(details,text.c_str());
+    }
     int count=Count();std::wstring progress=std::to_wstring(count)+L" / 18 personagens liberados";
     if(busy)progress+=L" — preparando retratos locais...";
     else if(!Ready())progress+=L" — prepare as imagens usando sua ROM";

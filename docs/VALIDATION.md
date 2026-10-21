@@ -87,3 +87,10 @@ dos percursos amostrados; isso não certifica tradução completa. A interface
 desconectada apresenta os campos de conta e a ativação desabilitada por padrão.
 As 87 regras oficiais e a primeira conquista autenticada permanecem pendentes.
 Detalhes em RETROACHIEVEMENTS.md.
+
+Galeria, 21/10/2026 (v0.4.1): eliminada a reatribuição de texto idêntico no
+temporizador de 1,5 segundo. Conferida a ficha ampliada de Akuma na instalação
+local com o desbloqueio existente, sem alterar o progresso. A rolagem foi
+mantida após atualizações automáticas. As 18 biografias receberam história,
+motivação e relações, com referências em GALLERY_STORIES.md. Compilação limpa
+e os seis testes CTest passaram; executáveis de gameplay não foram alterados.

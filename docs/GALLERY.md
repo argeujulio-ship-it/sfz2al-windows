@@ -24,6 +24,10 @@ As variantes secretas não entram na contagem dos 18. Carregar apenas um estado 
 no final não concede a ficha: o observador precisa ver combate solo antes do final.
 Esse é um progresso local, sem conta online, sincronização ou proteção contra edição.
 
+As fichas agora incluem história, motivação e relações de cada um dos 18 lutadores.
+As referências e o recorte editorial estão em [GALLERY_STORIES.md](GALLERY_STORIES.md).
+A atualização de progresso preserva a posição de leitura quando a ficha não muda.
+
 Os resumos são textos próprios em português e os comandos são uma referência dos
 golpes principais da forma padrão. Não incluem todos os golpes, variantes ou detalhes
 de execução. As setas assumem que o lutador olha para a direita. Colchetes indicam
