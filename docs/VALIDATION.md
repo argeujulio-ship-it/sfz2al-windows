@@ -94,3 +94,5 @@ local com o desbloqueio existente, sem alterar o progresso. A rolagem foi
 mantida após atualizações automáticas. As 18 biografias receberam história,
 motivação e relações, com referências em GALLERY_STORIES.md. Compilação limpa
 e os seis testes CTest passaram; executáveis de gameplay não foram alterados.
+
+Abas e combos, 21/10/2026 (v0.4.2): seis testes CTest passaram, incluindo disponibilidade das tecnicas com historia bloqueada e separacao dos comandos para os 18 personagens. Uma rota de chao por personagem foi reproduzida nas edicoes Brasil e Asia, com primeiro normal causando dano e contador de pelo menos dois acertos. Sete entradas aereas foram conferidas somente no Brasil. Conferidas visualmente as abas da galeria. Detalhes e limites em GALLERY_COMBOS.md.

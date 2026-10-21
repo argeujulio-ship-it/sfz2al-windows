@@ -5,7 +5,9 @@ a partir da sua ROM completa da edição selecionada. Não precisa instalar Pyth
 A captura roda em segundo plano, usando EEPROM e configurações temporárias;
 não usa a memória da sua placa nem altera seus controles.
 
-Os comandos principais ficam disponíveis desde o início. As imagens, origem,
+As abas **Golpes simples**, **Super combos** e **Combos** ficam disponíveis desde
+o início. A biografia fica na aba **História**. Consulte as sequências e a
+validação em [GALLERY_COMBOS.md](GALLERY_COMBOS.md). As imagens, origem,
 estilo e breve história são liberados ao vencer o Arcade com a forma principal
 de cada personagem. Ao chegar a **18 / 18**, clique em **Ver recompensa completa**:
 o app compõe um painel dos 18 retratos originais e salva `user/gallery/recompensa.png`.

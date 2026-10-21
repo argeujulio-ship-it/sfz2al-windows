@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "gallery_progress.h"
 #include "gallery_data.hpp"
+#include "gallery_techniques.hpp"
 #include <cassert>
 #include <iostream>
 
@@ -15,6 +16,15 @@ int main(int argc,char **argv){
         assert(p.Observe(ending)==-1);assert(GalleryProgress::Save(folder,id));assert(GalleryProgress::Save(folder,id));
         assert(std::filesystem::is_regular_file(folder/"progress"/(std::to_string(id)+".clear")));
         assert(gallery::fighters[id].x>=0&&gallery::fighters[id].x<5&&gallery::fighters[id].y>=0&&gallery::fighters[id].y<4);
+        using namespace gallery;
+        const auto locked=PageText(id,Page::Story,false);
+        assert(locked.find(fighters[id].story)==std::wstring::npos);
+        assert(PageText(id,Page::Story,true).find(fighters[id].story)!=std::wstring::npos);
+        const auto simple=MoveSection(id,false),super=MoveSection(id,true);
+        assert(!simple.empty()&&!super.empty()&&simple+L"\r\n"+super==fighters[id].moves);
+        assert(PageText(id,Page::Simple,false).find(simple)!=std::wstring::npos);
+        assert(PageText(id,Page::Super,false).find(super)!=std::wstring::npos);
+        assert(PageText(id,Page::Combos,false).find(comboRoutes[id])!=std::wstring::npos);
     }
     GalleryProgress p;fight.character[0]=0;auto ending=fight;ending.game=10;
     for(int f=0;f<300;++f)assert(p.Observe(ending)==-1); // Loading an ending or seeing an attract ending.

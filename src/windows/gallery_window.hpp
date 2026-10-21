@@ -2,6 +2,7 @@
 // Local ROM portraits are generated on the user's machine, never embedded.
 #pragma once
 #include "gallery_data.hpp"
+#include "gallery_techniques.hpp"
 #include <atomic>
 #include <fstream>
 #include <thread>
@@ -10,6 +11,8 @@ namespace gallery {
 inline HWND window=nullptr,details=nullptr,status=nullptr,prepare=nullptr,bonus=nullptr;
 inline fs::path folder,art,gamePath,romPath;
 inline int selected=0;
+inline Page page=Page::Story;
+inline std::array<HWND,4> tabs{};
 inline bool reward=false;
 inline std::atomic<bool> busy=false,cancel=false;
 inline std::thread worker;
@@ -51,13 +54,7 @@ inline bool SaveReward(){
     CLSID encoder;return Encoder(encoder)==0&&image.Save((folder/L"recompensa.png").c_str(),&encoder)==Gdiplus::Ok;
 }
 inline void Refresh(){
-    const auto &f=fighters[selected];const bool open=Unlocked(selected);
-    std::wstring text=f.name;
-    text+=open?L"\r\nCAMPANHA CONCLUIDA\r\n\r\n":L"\r\nHISTÓRIA BLOQUEADA\r\n\r\n";
-    if(open)text+=std::wstring(L"Origem: ")+f.origin+L"\r\nEstilo: "+f.style+L"\r\n\r\n"+f.story+L"\r\n\r\n";
-    else text+=L"Conclua o Arcade com este personagem para liberar sua imagem e história.\r\n\r\n";
-    text+=L"GOLPES PRINCIPAIS\r\n\r\n";text+=f.moves;
-    text+=L"\r\n\r\nDireções com o personagem olhando para a direita. Inverta esquerda/direita ao trocar de lado.\r\n\r\nP = soco; K = chute.\r\nL / M / H = fraco / médio / forte.\r\nPPP / KKK = três botões juntos.\r\n[ ] = segure para carregar.\r\n360° / 720° = uma / duas voltas.\r\nSupers exigem barra; PP/KK e PPP/KKK selecionam níveis maiores quando disponíveis.\r\n\r\nReferência da forma principal; não é a lista completa de golpes e variantes.";
+    const std::wstring text=PageText(selected,page,Unlocked(selected));
     if(!reward){
         // The progress timer also calls Refresh. Replacing identical edit text
         // resets its scroll position, so leave the reader's view untouched.
@@ -115,6 +112,13 @@ inline void BuildImages(){
 }
 inline LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
     if(m==WM_DRAWITEM&&wp){const auto &d=*reinterpret_cast<DRAWITEMSTRUCT*>(lp);RECT box=d.rcItem;
+        if(wp>=40&&wp<=43){
+            bool active=int(page)==int(wp)-40&&!reward;
+            ui::Fill(d.hDC,box,active?ui::gold:ui::panel);
+            wchar_t label[100];GetWindowTextW(d.hwndItem,label,100);
+            ui::Text(d.hDC,label,box,ui::smallFont,active?ui::background:ui::ink,DT_CENTER|DT_VCENTER|DT_WORDBREAK);
+            if(d.itemState&ODS_FOCUS){InflateRect(&box,-3,-3);DrawFocusRect(d.hDC,&box);}return TRUE;
+        }
         ui::Fill(d.hDC,box,ui::panel);FrameRect(d.hDC,&box,ui::panelBrush);
         wchar_t label[160];GetWindowTextW(d.hwndItem,label,160);ui::Text(d.hDC,label,box,font,(d.itemState&ODS_DISABLED)?ui::muted:ui::ink,DT_CENTER|DT_VCENTER|DT_SINGLELINE);
         if(d.itemState&ODS_FOCUS){InflateRect(&box,-3,-3);DrawFocusRect(d.hDC,&box);}return TRUE;}
@@ -122,7 +126,9 @@ inline LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
     if(m==WM_CREATE){
         window=w;
         status=Control(w,L"STATIC",L"",0,24,51,1000,30);
-        details=Control(w,L"EDIT",L"",ES_MULTILINE|ES_READONLY|ES_AUTOVSCROLL|WS_VSCROLL|WS_BORDER,634,94,382,514);
+        const wchar_t *labels[]={L"História",L"Golpes\nsimples",L"Super\ncombos",L"Combos"};
+        for(int i=0;i<4;++i)tabs[i]=Control(w,L"BUTTON",labels[i],WS_TABSTOP,634+i*96,94,i==3?94:92,44,40+i);
+        details=Control(w,L"EDIT",L"",ES_MULTILINE|ES_READONLY|ES_AUTOVSCROLL|WS_VSCROLL|WS_BORDER|WS_TABSTOP,634,146,382,462);
         prepare=Control(w,L"BUTTON",L"Preparar imagens da ROM",WS_TABSTOP,24,627,232,38,1);
         bonus=Control(w,L"BUTTON",L"Recompensa: complete 18 / 18",WS_TABSTOP,270,627,330,38,2);
         Control(w,L"BUTTON",L"Fechar",WS_TABSTOP,876,627,140,38,3);
@@ -146,7 +152,9 @@ inline LRESULT CALLBACK Proc(HWND w,UINT m,WPARAM wp,LPARAM lp){
     }
     if(m==WM_LBUTTONDOWN){int x=LOWORD(lp),y=HIWORD(lp);if(x>=24&&x<600&&y>=94&&y<610){int col=(x-24)/96,row=(y-94)/172;int id=row*6+col;if(id<18){selected=id;reward=false;ui::Sound(menu_audio::Cue::Confirm);Refresh();}}return 0;}
     if(m==WM_KEYDOWN&&(wp==VK_LEFT||wp==VK_RIGHT||wp==VK_UP||wp==VK_DOWN)){selected=(selected+(wp==VK_LEFT?17:wp==VK_RIGHT?1:wp==VK_UP?12:6))%18;reward=false;Refresh();return 0;}
-    if(m==WM_COMMAND){switch(LOWORD(wp)){
+    if(m==WM_COMMAND){
+        if(LOWORD(wp)>=40&&LOWORD(wp)<=43){page=Page(LOWORD(wp)-40);reward=false;ui::Sound(menu_audio::Cue::Navigate);Refresh();for(auto tab:tabs)InvalidateRect(tab,nullptr,TRUE);return 0;}
+        switch(LOWORD(wp)){
         case 1:BuildImages();break;
         case 2:if(Count()==18&&Ready()){if(!SaveReward()){MessageBoxW(w,L"Não foi possível salvar a imagem nesta pasta.",L"Galeria",MB_OK|MB_ICONERROR);break;}reward=true;SetWindowTextW(details,L"PARABÉNS!\r\n\r\nVocê concluiu as campanhas dos 18 personagens principais.\r\n\r\nEste painel usa os retratos originais da sua ROM.\r\n\r\nA imagem foi salva em user/gallery/recompensa.png.\r\n\r\nClique em um personagem para voltar às fichas.");InvalidateRect(w,nullptr,FALSE);}break;
         case 3:SendMessageW(w,WM_CLOSE,0,0);break;
@@ -161,7 +169,7 @@ inline void Open(HWND owner){
     if(window){ShowWindow(window,SW_RESTORE);SetForegroundWindow(window);return;}
     Gdiplus::GdiplusStartupInput startup;if(Gdiplus::GdiplusStartup(&graphicsToken,&startup,nullptr)!=Gdiplus::Ok)return;
     folder=app/L"user/gallery";art=folder/versionCodes[selectedVersion];romPath=rom;gamePath=app/(selectedVersion==1?L"sfz2alb-game.exe":L"sfz2al-game.exe");
-    reward=false;selected=0;
+    reward=false;selected=0;page=Page::Story;
     WNDCLASSW wc{};wc.lpfnWndProc=Proc;wc.hInstance=GetModuleHandleW(nullptr);wc.lpszClassName=L"SFZ2ALGallery";wc.hCursor=LoadCursorW(nullptr,IDC_ARROW);wc.hbrBackground=ui::bgBrush;wc.hIcon=LoadIconW(wc.hInstance,MAKEINTRESOURCEW(1));RegisterClassW(&wc);
     RECT r{0,0,1040,690};AdjustWindowRect(&r,WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX,FALSE);
     window=CreateWindowW(wc.lpszClassName,L"SFZ2AL — Galeria",WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX|WS_CLIPCHILDREN,CW_USEDEFAULT,CW_USEDEFAULT,r.right-r.left,r.bottom-r.top,owner,nullptr,wc.hInstance,nullptr);
